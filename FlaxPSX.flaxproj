@@ -1,6 +1,6 @@
 {
 	"Name": "Example Plugin",
-	"Version": "1.0",
+	"Version": "0.1",
 	"Company": "",
 	"Copyright": "",
 	"GameTarget": "ExamplePluginTarget",
@@ -10,5 +10,5 @@
 			"Name": "$(EnginePath)/Flax.flaxproj"
 		}
 	],
-	"MinEngineVersion": "0.0.6167"
+	"MinEngineVersion": "1.11.6802"
 }

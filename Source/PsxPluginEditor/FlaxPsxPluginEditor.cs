@@ -3,18 +3,18 @@ using FlaxEditor;
 using FlaxEditor.GUI;
 using FlaxEngine;
 
-namespace ExamplePlugin
+namespace PsxPlugin
 {
 	/// <summary>
-	/// The sample editor plugin using <see cref="MyPlugin"/>.
+	/// The editor plugin using <see cref="FlaxPsxPlugin"/>.
 	/// </summary>
 	/// <seealso cref="FlaxEditor.EditorPlugin" />
-	public class MyPluginEditor : EditorPlugin
+	public class FlaxPsxPluginEditor : EditorPlugin
     {
         private ToolStripButton _button;
 
         /// <inheritdoc />
-        public override Type GamePluginType => typeof(MyPlugin);
+        public override Type GamePluginType => typeof(FlaxPsxPlugin);
 
         /// <inheritdoc />
         public override void InitializeEditor()

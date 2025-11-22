@@ -1,28 +1,28 @@
 using System;
 using FlaxEngine;
 
-namespace ExamplePlugin
+namespace PsxPlugin
 {
     /// <summary>
     /// The sample game plugin.
     /// </summary>
     /// <seealso cref="FlaxEngine.GamePlugin" />
-    public class MyPlugin : GamePlugin
+    public class FlaxPsxPlugin : GamePlugin
     {
         /// <inheritdoc />
-        public MyPlugin()
+        public FlaxPsxPlugin()
         {
             _description = new PluginDescription
             {
-                Name = "My Plugin",
-                Category = "Other",
-                Author = "Flax Engine",
-                AuthorUrl = null,
+                Name = "Flax PSX",
+                Category = "Graphics",
+                Author = "AcidicVoid",
+                AuthorUrl = "www.acidicvoid.com",
                 HomepageUrl = null,
-                RepositoryUrl = "https://github.com/FlaxEngine/ExamplePlugin",
-                Description = "This is an example plugin project.",
-                Version = new Version(1, 0),
-                IsAlpha = false,
+                RepositoryUrl = "https://github.com/AcidicVoid/Flax-PSX",
+                Description = "Plugin that brings PSX-like visuals to your Flax Engine project ",
+                Version = new Version(0, 1),
+                IsAlpha = true,
                 IsBeta = false,
             };
         }
@@ -31,15 +31,13 @@ namespace ExamplePlugin
         public override void Initialize()
         {
             base.Initialize();
-
-            Debug.Log("Hello from plugin code!");
+            Debug.Log("Initializing Flax PSX plugin");
         }
 
         /// <inheritdoc />
         public override void Deinitialize()
         {
-            // Use it to cleanup data
-
+            Debug.Log("Plugin cleanup!");
             base.Deinitialize();
         }
     }

@@ -1,10 +1,10 @@
 {
-	"Name": "Example Plugin",
+	"Name": "FlaxPSX",
 	"Version": "0.1",
 	"Company": "",
 	"Copyright": "",
-	"GameTarget": "ExamplePluginTarget",
-	"EditorTarget": "ExamplePluginEditorTarget",
+	"GameTarget": "PsxPlugin",
+	"EditorTarget": "FlaxPsxPluginEditorTarget",
 	"References": [
 		{
 			"Name": "$(EnginePath)/Flax.flaxproj"

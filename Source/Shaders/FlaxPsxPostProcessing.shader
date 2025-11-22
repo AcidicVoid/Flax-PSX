@@ -5,9 +5,8 @@
 
 #include "./Flax/Common.hlsl"
 #include "./Flax/GBuffer.hlsl"
-#include "./Flax-PSX/includes/RetroFX.hlsl"
-#include "./Flax-PSX/includes/Fog.hlsl"
-#include "./Flax-PSX/includes/Functions.hlsl"
+#include "./FlaxPSX/includes/psx.hlsl"
+#include "./FlaxPSX/includes/fog.hlsl"
 
 META_CB_BEGIN(0, Data)
   float2 sceneRenderSize;
@@ -82,7 +81,6 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     // Fog
     half fogFalloff = lerp(FogFalloffOutBack(c1,c2,depth01), FogFalloffOutQuint(depth01), falloff);
     half fog = clamp(fogFalloff,fogMin,1);
-         fog = InterleavedGradientNoise1(ditherUv, fog, 0.005);
     scene = half4(lerp(scene.rgb,fog,fogColor.rgb * fogColor.a),1);
 
     half4  sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr);

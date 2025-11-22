@@ -1,11 +1,11 @@
 {
-	"ID": "b977939b436cc20f2cc674aaf1c1cd78",
+	"ID": "4cdfee254e734459abf2ddb20285608f",
 	"TypeName": "FlaxEditor.Content.Settings.GameSettings",
-	"EngineBuild": 6167,
+	"EngineBuild": 6802,
 	"Data": {
-	"ProductName": "Example Plugin",
-	"CompanyName": "Flax",
-	"Version": "1.0",
+	"ProductName": "Flax PSX",
+	"CompanyName": "AcidicVoid",
+	"Version": "0.1",
 	"FirstScene": "00000000000000000000000000000000"
 }
 }

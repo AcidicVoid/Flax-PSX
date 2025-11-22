@@ -4,7 +4,7 @@
 	"Company": "",
 	"Copyright": "",
 	"GameTarget": "PsxPlugin",
-	"EditorTarget": "FlaxPsxPluginEditorTarget",
+	"EditorTarget": "FlaxPsxEditorTarget",
 	"References": [
 		{
 			"Name": "$(EnginePath)/Flax.flaxproj"

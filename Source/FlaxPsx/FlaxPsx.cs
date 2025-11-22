@@ -1,16 +1,16 @@
 using System;
 using FlaxEngine;
 
-namespace PsxPlugin
+namespace AcidicVoid.FlaxPsx
 {
     /// <summary>
     /// The sample game plugin.
     /// </summary>
     /// <seealso cref="FlaxEngine.GamePlugin" />
-    public class FlaxPsxPlugin : GamePlugin
+    public class FlaxPsx : GamePlugin
     {
         /// <inheritdoc />
-        public FlaxPsxPlugin()
+        public FlaxPsx()
         {
             _description = new PluginDescription
             {

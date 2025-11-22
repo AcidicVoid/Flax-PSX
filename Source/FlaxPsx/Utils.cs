@@ -1,6 +1,6 @@
 ﻿using FlaxEngine;
 
-namespace PsxPlugin;
+namespace AcidicVoid.FlaxPsx;
 
 public class Utils
 {

@@ -1,6 +1,6 @@
 ﻿using FlaxEngine;
 
-namespace FlaxPsxPlugin.Rendering;
+namespace AcidicVoid.FlaxPsx.Rendering;
 
 [Category(name: "Rendering")]
 public class Utils

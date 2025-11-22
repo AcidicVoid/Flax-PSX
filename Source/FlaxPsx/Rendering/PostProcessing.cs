@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using FlaxEngine;
 
-namespace FlaxPsxPlugin.Rendering;
+namespace AcidicVoid.FlaxPsx.Rendering;
 
 /// <summary>
 /// PostProcessing class.

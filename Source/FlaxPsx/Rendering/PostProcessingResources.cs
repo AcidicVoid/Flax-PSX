@@ -1,6 +1,6 @@
 ﻿using FlaxEngine;
 
-namespace FlaxPsxPlugin.Rendering;
+namespace AcidicVoid.FlaxPsx.Rendering;
 
 /// <summary>
 /// PostProcessingResources class.

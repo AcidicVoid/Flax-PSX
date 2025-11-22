@@ -3,7 +3,7 @@
 namespace AcidicVoid.FlaxPsx.Rendering;
 
 [Category(name: "Rendering")]
-public class Utils
+public class RenderUtils
 {
     /// <summary>
     /// Calculates the final viewport respecting the internal rendering resolution. This is used to scale the internal lowres image to match the game's viewport. Supports integer scaling.

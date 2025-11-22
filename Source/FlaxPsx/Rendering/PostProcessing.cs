@@ -102,7 +102,7 @@ public class PostProcessing : PostProcessEffect
 
         // Calculate Viewport Size
         _targetSize = GetOutputSize();
-        _targetViewport = Utils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
+        _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         
         // Plug into main scene rendering
         MainRenderTask.Instance.AddCustomPostFx(this);
@@ -122,9 +122,9 @@ public class PostProcessing : PostProcessEffect
         bool mainRenderTaskAvailable = MainRenderTask.Instance != null;
 
         if (mainRenderTaskAvailable)
-            return PsxPlugin.Utils.Float2ToInt2(MainRenderTask.Instance!.Output.Size);
+            return Utils.Float2ToInt2(MainRenderTask.Instance!.Output.Size);
 
-        return PsxPlugin.Utils.Float2ToInt2(Screen.Size);
+        return Utils.Float2ToInt2(Screen.Size);
     }
 
     public override void OnDisable()
@@ -292,7 +292,7 @@ public class PostProcessing : PostProcessEffect
     // Gets invoked in SetRenderSize
     private void OnViewportSizeChanged(float w, float h)
     {
-        _targetViewport = Utils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
+        _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
     }
 
 #if FLAX_EDITOR

@@ -107,9 +107,9 @@ public class PostProcessingResources : Script
     /// Switches the scene render task's camera
     /// </summary>
     /// <param name="camera">The camera to use</param>
-    private void SwitchSceneCamera(Camera camera)
+    public void SwitchSceneCamera(Camera camera)
     {
-        if (_sceneRenderTask != null)
+        if (_sceneRenderTask != null && _sceneRenderTask.Camera != camera)
             _sceneRenderTask.Camera = camera;
     }
     
@@ -150,4 +150,13 @@ public class PostProcessingResources : Script
         DestroySceneRenderTask(ref _sceneRenderTask);
         DestroyGpuTexture(ref _sceneGpuTexture); 
     }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public override void OnUpdate()
+    {
+        SwitchSceneCamera(SceneCamera = Camera.MainCamera);
+    }
+
 }

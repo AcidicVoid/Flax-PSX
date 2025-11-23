@@ -21,3 +21,11 @@ half4 ColorPostProcessing(half4 col, float2 uv, float ditherStr)
     col = lerp((half4)(uint4(col) & 0xf8), 0xf8, step(0xf8,col));
     return col / 255;
 }
+
+float3 ConvertToPsxColorRange(float3 color)
+{
+    color *= 255;
+    color = lerp((uint3(color) & 0xf8), 0xf8, step(0xf8,color));
+    color /= 255;
+    return color;
+}

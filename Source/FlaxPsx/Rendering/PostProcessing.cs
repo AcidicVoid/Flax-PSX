@@ -11,6 +11,11 @@ namespace AcidicVoid.FlaxPsx.Rendering;
 [ExecuteInEditMode]
 public class PostProcessing : PostProcessEffect
 {
+    [HideInEditor]
+    public Action OnChange;
+    [HideInEditor]
+    public Action<Int2> OnResolutionChanged;
+    
     [StructLayout(LayoutKind.Sequential)]
     protected struct ComposerData
     {
@@ -145,6 +150,9 @@ public class PostProcessing : PostProcessEffect
         {
             _renderSize = RenderSize;
             changesDetected = true;
+            // Trigger Event
+            if (OnResolutionChanged != null)
+                OnResolutionChanged.Invoke(_renderSize);
         }
         if (Resources != null && Resources.InternalRenderSize != _renderSize)
         {
@@ -172,6 +180,9 @@ public class PostProcessing : PostProcessEffect
             if (RecalculateViewportSizeOnChange)
                 UseCustomViewport = true;
         }
+        // Trigger Event
+        if (changesDetected && OnChange != null)
+            OnChange.Invoke();
         return changesDetected;
     }
     

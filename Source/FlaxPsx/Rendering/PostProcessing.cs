@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using FlaxEngine;
 
@@ -165,6 +166,7 @@ public class PostProcessing : PostProcessEffect
             changesDetected = true;
             if (IntegerScaling)
                 UseCustomViewport = true;
+            _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         }
         if (UseCustomViewport != _useCustomViewport)
         {
@@ -296,10 +298,9 @@ public class PostProcessing : PostProcessEffect
 #endif
     }
     
-    // Gets invoked in SetRenderSize
     private void OnViewportSizeChanged(float w, float h)
     {
-        _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
+        _targetViewport = RenderUtils.CalculateDisplayViewport(_renderSize, _targetSize, IntegerScaling);
     }
 
 #if FLAX_EDITOR

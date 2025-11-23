@@ -56,6 +56,7 @@ public class PostProcessingResources : Script
     /// <param name="size">Desired texture size</param>
     public void ResizeGpuTexture(Int2 size)
     {
+        _internalRenderSize = size;
         if (_sceneGpuTexture != null)
             _sceneGpuTexture.Resize(size.X, size.Y);
     }

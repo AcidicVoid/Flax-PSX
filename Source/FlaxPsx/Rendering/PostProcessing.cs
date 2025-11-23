@@ -142,7 +142,7 @@ public class PostProcessing : PostProcessEffect
         ViewportSizeChanged -= OnViewportSizeChanged;
     }
 
-    private bool DetectChanges()
+    private bool HandleChanges()
     {
         bool changesDetected = false;
 
@@ -203,11 +203,7 @@ public class PostProcessing : PostProcessEffect
         Profiler.BeginEventGPU("Custom Rendering");
 #endif
         // If any of the main rendering options have changed, restart the script
-        if (DetectChanges())
-        {
-            this.Enabled = false;
-            this.Enabled = true;
-        }
+        HandleChanges();
         
         // Recalculate the viewport if needed
         if (RecalculateViewportSizeOnChange && (_targetSize != GetOutputSize()))

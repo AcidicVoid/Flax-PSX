@@ -21,7 +21,7 @@ public class PostProcessingResources : Script
     /// <summary>
     /// Scene camera to use
     /// </summary>
-    public Camera SceneCamera => Camera.MainCamera;
+    public Camera SceneCamera = Camera.MainCamera;
     
     public int SceneRenderOrder = -100;
     
@@ -103,6 +103,15 @@ public class PostProcessingResources : Script
         };
     }
 
+
+    /// <summary>
+    /// Switches the scene render task's camera
+    /// </summary>
+    void SwitchSceneCamera()
+    {
+        if (!_sceneRenderTask) _sceneRenderTask.Camera = SceneCamera;
+    }
+
     /// <summary>
     /// Destroys the scene render task
     /// </summary>
@@ -144,9 +153,9 @@ public class PostProcessingResources : Script
     /// <summary>
     /// 
     /// </summary>
-    public override void OnUpdate()
+    public override void OnLateFixedUpdate()
     {
-        _sceneRenderTask.Camera = SceneCamera;
+        SwitchSceneCamera();
     }
 
 }

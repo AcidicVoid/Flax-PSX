@@ -21,7 +21,8 @@ public class PostProcessingResources : Script
     /// <summary>
     /// Scene camera to use
     /// </summary>
-    public Camera SceneCamera = Camera.MainCamera;
+    public Camera CustomCamera;
+    private Camera SceneCamera => (CustomCamera) ? CustomCamera : Camera.MainCamera; 
     
     public int SceneRenderOrder = -100;
     
@@ -109,7 +110,7 @@ public class PostProcessingResources : Script
     /// </summary>
     void SwitchSceneCamera()
     {
-        if (!_sceneRenderTask) _sceneRenderTask.Camera = SceneCamera;
+        if (_sceneRenderTask) _sceneRenderTask.Camera = SceneCamera;
     }
 
     /// <summary>

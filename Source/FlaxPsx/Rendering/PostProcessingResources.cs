@@ -108,7 +108,7 @@ public class PostProcessingResources : Script
     /// <summary>
     /// Switches the scene render task's camera
     /// </summary>
-    void SwitchSceneCamera()
+    private void SwitchSceneCamera()
     {
         if (_sceneRenderTask) _sceneRenderTask.Camera = SceneCamera;
     }

@@ -106,11 +106,14 @@ public class PostProcessingResources : Script
 
 
     /// <summary>
-    /// Switches the scene render task's camera
+    /// Manages continuous render's task
     /// </summary>
-    private void SwitchSceneCamera()
+    private void UpdateRenderTask()
     {
-        if (_sceneRenderTask) _sceneRenderTask.Camera = SceneCamera;
+        if (_sceneRenderTask)
+        {
+            _sceneRenderTask.Camera = SceneCamera;
+        }
     }
 
     /// <summary>
@@ -156,6 +159,6 @@ public class PostProcessingResources : Script
     /// </summary>
     public override void OnLateFixedUpdate()
     {
-        SwitchSceneCamera();
+        UpdateRenderTask();
     }
 }

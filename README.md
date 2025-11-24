@@ -34,7 +34,7 @@ This plugin has been tested with Windows 11 **only**.
     *  it's highly reccomended to disable all advanced graphics features like anti aliasing, camera artifacts, etc. if you're aiming for authentic retro visuals
 5. add a **Flax PSX/PostProcessingResources** script to your actor
     * add your custom camera (present in the scene)
-    * if using [CineBlend](https://github.com/GasimoCodes/CineBlend]), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
+      * if using [CineBlend](https://github.com/GasimoCodes/CineBlend]), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
 6. add a **Flax PSX/PostProcessing** script to your actor
     * add reference to the *PostProcessingResources* to the Resources slot
     * add the *FlaxPSxPostProcessing* shader to the Shader slot

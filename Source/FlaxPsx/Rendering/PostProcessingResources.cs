@@ -106,7 +106,7 @@ public class PostProcessingResources : Script
 
 
     /// <summary>
-    /// Manages continuous render's task
+    /// Manages continuous render task
     /// </summary>
     private void UpdateRenderTask()
     {

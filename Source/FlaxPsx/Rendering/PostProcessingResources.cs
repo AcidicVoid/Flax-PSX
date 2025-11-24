@@ -19,7 +19,7 @@ public class PostProcessingResources : Script
     private Int2 _internalRenderSize = new(320, 240);
     
     /// <summary>
-    /// Scene camera to use
+    /// Custom camera to use
     /// </summary>
     public Camera CustomCamera;
     private Camera SceneCamera => (CustomCamera) ? CustomCamera : Camera.MainCamera; 

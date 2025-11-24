@@ -21,7 +21,7 @@ public class PostProcessingResources : Script
     /// <summary>
     /// Scene camera to use
     /// </summary>
-    public Camera SceneCamera;
+    public Camera SceneCamera => Camera.MainCamera;
     
     public int SceneRenderOrder = -100;
     
@@ -104,16 +104,6 @@ public class PostProcessingResources : Script
     }
 
     /// <summary>
-    /// Switches the scene render task's camera
-    /// </summary>
-    /// <param name="camera">The camera to use</param>
-    private void SwitchSceneCamera(Camera camera)
-    {
-        if (_sceneRenderTask != null)
-            _sceneRenderTask.Camera = camera;
-    }
-    
-    /// <summary>
     /// Destroys the scene render task
     /// </summary>
     /// <param name="SceneRenderTask">Reference of the SceneRenderTask to destroy</param>
@@ -150,4 +140,13 @@ public class PostProcessingResources : Script
         DestroySceneRenderTask(ref _sceneRenderTask);
         DestroyGpuTexture(ref _sceneGpuTexture); 
     }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public override void OnUpdate()
+    {
+        _sceneRenderTask.Camera = SceneCamera;
+    }
+
 }

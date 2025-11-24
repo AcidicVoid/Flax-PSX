@@ -152,11 +152,10 @@ public class PostProcessingResources : Script
     }
 
     /// <summary>
-    /// 
+    /// Called every fixed framerate frame (after FixedUpdate) if object is enabled
     /// </summary>
     public override void OnLateFixedUpdate()
     {
         SwitchSceneCamera();
     }
-
 }

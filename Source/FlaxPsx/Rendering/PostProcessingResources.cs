@@ -22,7 +22,7 @@ public class PostProcessingResources : Script
     /// Custom camera to use
     /// </summary>
     public Camera CustomCamera;
-    private Camera SceneCamera => (CustomCamera) ? CustomCamera : Camera.MainCamera; 
+    private Camera SceneCamera; 
     
     public int SceneRenderOrder = -100;
     
@@ -40,7 +40,12 @@ public class PostProcessingResources : Script
     /// </summary>
     public SceneRenderTask SceneRenderTask => _sceneRenderTask;
     private Int2 _currentGameRes;
-    
+
+    public override void OnAwake()
+    {
+        SceneCamera = (CustomCamera) ? CustomCamera : (Camera.MainCamera) ? Camera.MainCamera : Level.FindActor<Camera>();
+    }
+
     /// <summary>
     /// Called when script is enabled. Creates resources and enables render task.
     /// </summary>

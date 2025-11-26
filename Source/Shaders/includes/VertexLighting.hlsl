@@ -68,6 +68,7 @@ float3 CalculateDiffuseLighting(float3 lightColor, float3 L, float3 N, float att
 // Get shadow value (0 = shadowed, 1 = lit)
 float GetShadowFactor(GBufferSample gBuffer, LightData light, float3 worldPos, float3 viewPos)
 {
+    /*
     LightData dirLight = GetDirectionalLight();
     
     // Calculate lighting from a single directional light
@@ -77,8 +78,8 @@ float GetShadowFactor(GBufferSample gBuffer, LightData light, float3 worldPos, f
     float4 lighting = GetLighting(viewPos, dirLight, gBuffer, shadowMask, false, false);
     
     return lighting.x;
+    */
     
-    /*
     // Check if light has shadows enabled
     if (light.ShadowsBufferAddress == 0)
         return 1.0;
@@ -87,7 +88,7 @@ float GetShadowFactor(GBufferSample gBuffer, LightData light, float3 worldPos, f
     // This is a placeholder - replace with actual Flax Engine shadow function
     // Example: return SampleShadowMap(light.ShadowsBufferAddress, worldPos);
     return 1.0; // For now, assume fully lit
-    */
+    
 }
 
 // Directional Light (Sun)

@@ -1,6 +1,8 @@
 #if __JETBRAINS_IDE__
+#include "./../../../../../FlaxEngine/Source/Shaders/GBuffer.hlsl"
 #include "./../../../../../FlaxEngine/Source/Shaders/Lighting.hlsl"
 #include "./../../../../../FlaxEngine/Source/Shaders/LightingCommon.hlsl"
+#include "./../../../../../FlaxEngine/Source/Shaders/MaterialCommon.hlsl"
 #endif
 
 #ifndef __INC_VL__
@@ -64,8 +66,19 @@ float3 CalculateDiffuseLighting(float3 lightColor, float3 L, float3 N, float att
 }
 
 // Get shadow value (0 = shadowed, 1 = lit)
-float GetShadowFactor(LightData light, float3 worldPos)
+float GetShadowFactor(GBufferSample gBuffer, LightData light, float3 worldPos, float3 viewPos)
 {
+    LightData dirLight = GetDirectionalLight();
+    
+    // Calculate lighting from a single directional light
+    ShadowSample shadow = SampleDirectionalLightShadow(dirLight, ShadowsBuffer, ShadowMap, gBuffer);
+    
+    float4 shadowMask = GetShadowMask(shadow);
+    float4 lighting = GetLighting(viewPos, dirLight, gBuffer, shadowMask, false, false);
+    
+    return lighting.x;
+    
+    /*
     // Check if light has shadows enabled
     if (light.ShadowsBufferAddress == 0)
         return 1.0;
@@ -74,10 +87,11 @@ float GetShadowFactor(LightData light, float3 worldPos)
     // This is a placeholder - replace with actual Flax Engine shadow function
     // Example: return SampleShadowMap(light.ShadowsBufferAddress, worldPos);
     return 1.0; // For now, assume fully lit
+    */
 }
 
 // Directional Light (Sun)
-float3 VL_GetDirectionalLighting(float3 worldPos, float3 worldNormal)
+float3 VL_GetDirectionalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPos, float3 worldNormal)
 {
     LightData dirLight = GetDirectionalLight();
     
@@ -86,7 +100,7 @@ float3 VL_GetDirectionalLighting(float3 worldPos, float3 worldNormal)
     float NdotL = saturate(dot(worldNormal, L));
     
     // Check shadows
-    float shadowFactor = GetShadowFactor(dirLight, worldPos);
+    float shadowFactor = GetShadowFactor(gBuffer, dirLight, worldPos, viewPos);
     
     return dirLight.Color * NdotL * shadowFactor;
 }
@@ -104,12 +118,11 @@ float3 VL_GetSkyLighting(float3 worldPos, float3 worldNormal)
 }
 
 // Local Lights (Point and Spot)
-float3 VL_GetLocalLighting(float3 worldPos, float3 worldNormal)
+float3 VL_GetLocalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPos, float3 worldNormal)
 {
     float3 totalLighting = float3(0, 0, 0);
     
     LOOP
-    //for (uint i = 0; i < GetLocalLightsCount(); i++)
     for (uint i = 0; i < GetLocalLightsCount(); i++)
     {
         const LightData localLight = GetLocalLight(i);
@@ -139,7 +152,7 @@ float3 VL_GetLocalLighting(float3 worldPos, float3 worldNormal)
         float3 lighting = CalculateDiffuseLighting(localLight.Color, L, worldNormal, attenuation);
         
         // Apply shadows
-        float shadowFactor = GetShadowFactor(localLight, worldPos);
+        float shadowFactor = GetShadowFactor(gBuffer, localLight, worldPos, viewPos);
         lighting *= shadowFactor;
         
         totalLighting += lighting;
@@ -149,18 +162,29 @@ float3 VL_GetLocalLighting(float3 worldPos, float3 worldNormal)
 }
 
 // Combined function to get all vertex lighting at once
-float3 VL_GetAllLighting(float3 worldPos, float3 worldNormal)
+float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal)
 {
+    GBufferSample gBuffer;
+    gBuffer.Normal = worldNormal;
+    gBuffer.Roughness = 1;
+    gBuffer.Metalness = 0;
+    gBuffer.Specular = 0;
+    gBuffer.Color = float3(1, 1, 1);
+    gBuffer.AO = float3(1, 1, 1);
+    gBuffer.ViewPos = viewPos;
+    gBuffer.WorldPos = worldPos;
+    gBuffer.ShadingModel = MATERIAL_SHADING_MODEL;
+    
     float3 lighting = float3(0, 0, 0);
     
     // Directional light
-    lighting += VL_GetDirectionalLighting(worldPos, worldNormal);
+    lighting += VL_GetDirectionalLighting(gBuffer, worldPos, viewPos, worldNormal);
     
-    // Sky light
+    // Sky-light
     lighting += VL_GetSkyLighting(worldPos, worldNormal);
     
     // Local lights
-    lighting += VL_GetLocalLighting(worldPos, worldNormal);
+    lighting += VL_GetLocalLighting(gBuffer, worldPos, viewPos, worldNormal);
     
     return lighting;
 }

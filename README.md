@@ -4,26 +4,23 @@
 This plugin uses a custom post-processing effect that fully bypasses the engine’s internal scene rendering. Instead, it renders the scene directly into a GPU texture at the exact resolution you specify.
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
-The main effects are:
-* truncation of color range to PSX-style 5bpc precision
-* PSX-style dithering
-* integer scaling
-* depth-based fog
-  * other fog styles are planned
-* very basic scanline effect
-
-I will provide my PSX-style materials in the future. These feature:
-
-* affine texture mapping
-* vertex lighting
-* screenspace vertex snapping (the mind-boggle wobble)
-* PSX-style water caustics like used in tomb raider
-
-## Status
+## Feature Status
 - [x] PSX-Style post processing
-- [ ] PSX-Style materials
+  - [x] dithering
+  - [x] integer scaling
+  - [x] depth-based fog
+  - [ ] additional fog techniques
+  - [ ] NTSC signal emulation
+  - [ ] CRT emulation
+- [x] PSX-Style materials
+  - [x] 5bpc color precision
+  - [x] vertex lighting
+  - [x] screenspace vertex snapping (the mind-boggle wobble)
+  - [x] PSX-style water caustics (Tomb Raider style)
+    - [x] material with caustics limited to local lights
+  - [ ] lighting effects for fire (torches, etc.)
 
-This plugin has been tested with Windows 11 **only**.
+This plugin has currently been tested with Windows 11 **only**.
 
 ## Installation
 

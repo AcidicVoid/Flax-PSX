@@ -19,9 +19,10 @@ public class PostProcessingResources : Script
     private Int2 _internalRenderSize = new(320, 240);
     
     /// <summary>
-    /// Scene camera to use
+    /// Custom camera to use
     /// </summary>
-    public Camera SceneCamera;
+    public Camera CustomCamera;
+    private Camera SceneCamera; 
     
     public int SceneRenderOrder = -100;
     
@@ -39,7 +40,12 @@ public class PostProcessingResources : Script
     /// </summary>
     public SceneRenderTask SceneRenderTask => _sceneRenderTask;
     private Int2 _currentGameRes;
-    
+
+    public override void OnAwake()
+    {
+        SceneCamera = (CustomCamera) ? CustomCamera : (Camera.MainCamera) ? Camera.MainCamera : Level.FindActor<Camera>();
+    }
+
     /// <summary>
     /// Called when script is enabled. Creates resources and enables render task.
     /// </summary>
@@ -103,16 +109,18 @@ public class PostProcessingResources : Script
         };
     }
 
+
     /// <summary>
-    /// Switches the scene render task's camera
+    /// Manages continuous render task
     /// </summary>
-    /// <param name="camera">The camera to use</param>
-    private void SwitchSceneCamera(Camera camera)
+    private void UpdateRenderTask()
     {
-        if (_sceneRenderTask != null)
-            _sceneRenderTask.Camera = camera;
+        if (_sceneRenderTask)
+        {
+            _sceneRenderTask.Camera = SceneCamera;
+        }
     }
-    
+
     /// <summary>
     /// Destroys the scene render task
     /// </summary>
@@ -149,5 +157,13 @@ public class PostProcessingResources : Script
         // Destroy Scene Rendering Resources
         DestroySceneRenderTask(ref _sceneRenderTask);
         DestroyGpuTexture(ref _sceneGpuTexture); 
+    }
+
+    /// <summary>
+    /// Called every fixed framerate frame (after FixedUpdate) if object is enabled
+    /// </summary>
+    public override void OnLateFixedUpdate()
+    {
+        UpdateRenderTask();
     }
 }

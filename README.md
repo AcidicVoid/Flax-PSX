@@ -32,7 +32,7 @@ This plugin has currently been tested with Windows 11 **only**.
 5. add a **Flax PSX/PostProcessingResources** script to your actor
     * add your scene camera
     * you can switch to another camera by referencing the PostProcessingResources in another Script and calling its *SwitchSceneCamera* method
-        * if using [CineBlend](https://github.com/GasimoCodes/CineBlend]), you only need to reference the Camera that carrys the CineBlendMaster — don't worry about the virtual cameras
+        * if using [CineBlend](https://github.com/GasimoCodes/CineBlend), you only need to reference the Camera that carrys the CineBlendMaster — don't worry about the virtual cameras
 6. add a **Flax PSX/PostProcessing** script to your actor
     * add reference to the *PostProcessingResources* to the Resources slot
     * add the *FlaxPSxPostProcessing* shader to the Shader slot
@@ -55,8 +55,7 @@ You also can use some other aspect ratio, just change *RenderSize* parameter
 
 You'll find more on my projects [on Bluesky](https://bsky.app/hashtag/AcidicDev?author=acidicvoid.com)
 
-If you like this project, please consider supporting me:  
-**[DONATE](https://dono.acidicvoid.com/)**
+If you like this project, please consider supporting me: **[DONATE](https://dono.acidicvoid.com/)**
 
 ### Sources
 

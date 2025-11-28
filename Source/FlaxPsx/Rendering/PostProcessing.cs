@@ -33,6 +33,8 @@ public class PostProcessing : PostProcessEffect
         public float  ditherStrength;
         public float  ditherBlend;
         public int    ditherSize;
+        public int    usePsxColorPrecision;
+        public int    useHighColor;
     }
     public Int2 RenderSize = new(640, 480);
     [Tooltip("Use for pixel-perfect scaling, will cause black borders")]
@@ -52,10 +54,13 @@ public class PostProcessing : PostProcessEffect
     [Range(0, 1)]  public float DitherStrength = 1f;
     [Range(0, 1)]  public float DitherBlend = 1f;
     [Range(1, 2)]  public int DitherSize = 1;
+    public bool UsePsxColorPrecision = true;
+    public bool UseHighColor = false;
     [HideInEditor] public Viewport TargetViewport => _targetViewport;
 
     private Int2 _renderSize;
     private bool _integerScaling;
+    private bool _useHighColor;
     private bool _useCustomViewport;
     private bool _recalculateViewportSizeOnChange;
     private Viewport _targetViewport;
@@ -147,6 +152,14 @@ public class PostProcessing : PostProcessEffect
     {
         bool changesDetected = false;
 
+        if (UseHighColor != _useHighColor)
+        {
+            _useHighColor = UseHighColor;
+            var desc = Resources.SceneGpuTexture.Description;
+            desc.Format = _useHighColor ? PostProcessingResources.PixelFormat8 : PostProcessingResources.PixelFormat16;
+            Resources.SceneGpuTexture.Init(ref desc);
+        }
+        
         if (RenderSize != _renderSize)
         {
             _renderSize = RenderSize;
@@ -263,6 +276,8 @@ public class PostProcessing : PostProcessEffect
                 ditherStrength = DitherStrength,
                 ditherBlend = DitherBlend,
                 ditherSize = DitherSize,
+                usePsxColorPrecision = UsePsxColorPrecision ? 1 : 0,
+                useHighColor = UseHighColor ? 1 : 0,
             };
         
             fixed (ComposerData* cbData = &_composerData)

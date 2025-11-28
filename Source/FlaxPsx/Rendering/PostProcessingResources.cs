@@ -25,7 +25,8 @@ public class PostProcessingResources : Script
     
     public int SceneRenderOrder = -100;
     
-    private const PixelFormat PixelFormat = FlaxEngine.PixelFormat.R8G8B8A8_UNorm;
+    public const PixelFormat PixelFormat8  = FlaxEngine.PixelFormat.R8G8B8A8_UNorm;
+    public const PixelFormat PixelFormat16 = FlaxEngine.PixelFormat.R16G16B16A16_UNorm;
     
     /// <summary>
     /// Gets current GPU texture
@@ -61,13 +62,13 @@ public class PostProcessingResources : Script
             _sceneGpuTexture.Resize(size.X, size.Y);
     }
     
-    private void CreateGpuTexture(ref GPUTexture texture, Int2 size, bool setCurrentGameRes = false, bool isUiTexture = false)
+    private void CreateGpuTexture(ref GPUTexture texture, Int2 size, bool highColor = false, bool setCurrentGameRes = false, bool isUiTexture = false)
     {
         DestroyGpuTexture(ref texture);
         GPUTextureDescription desc = GPUTextureDescription.New2D(
             width: size.X,
             height: size.Y,
-            format: PixelFormat,
+            format: highColor ? PixelFormat16 : PixelFormat8,
             mipCount: 0,
             msaaLevel: MSAALevel.None
         );

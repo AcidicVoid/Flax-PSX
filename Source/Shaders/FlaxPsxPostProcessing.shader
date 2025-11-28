@@ -22,6 +22,8 @@ META_CB_BEGIN(0, Data)
   float  ditherStrength;
   float  ditherBlend;
   int    ditherSize;
+  int    usePsxColorPrecision;
+  int    useHighColor;
 META_CB_END
 
 Texture2D sceneTexture   : register(t0);
@@ -65,7 +67,7 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
 {
     // Prepare resources
     frag_out o;
-    half4 ui = uiTexture.Sample(SamplerPointClamp, input.TexCoord);
+    // half4 ui = uiTexture.Sample(SamplerPointClamp, input.TexCoord);
     half4 scene = sceneTexture.Sample(SamplerPointClamp, input.TexCoord); 
 
     // Get and linearize depth buffer
@@ -83,11 +85,11 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     half fog = clamp(fogFalloff,fogMin,1);
     scene = half4(lerp(scene.rgb,fog,fogColor.rgb * fogColor.a),1);
 
-    half4  sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr);
+    half4  sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
            sceneProcessed = lerp(scene, sceneProcessed, ditherBlend);
 
     // Combine
-    o.color = lerp(sceneProcessed, ui, 0) * Scanlines(input.TexCoord, sceneRenderSize, upscaledSize, scanlineStrength);
+    o.color = sceneProcessed * Scanlines(input.TexCoord, sceneRenderSize, upscaledSize, scanlineStrength);
     o.depth = depth;
     return o; 
 }

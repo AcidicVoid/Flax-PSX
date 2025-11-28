@@ -4,26 +4,23 @@
 This plugin uses a custom post-processing effect that fully bypasses the engine’s internal scene rendering. Instead, it renders the scene directly into a GPU texture at the exact resolution you specify.
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
-The main effects are:
-* truncation of color range to PSX-style 5bpc precision
-* PSX-style dithering
-* integer scaling
-* depth-based fog
-  * other fog styles are planned
-* very basic scanline effect
-
-I will provide my PSX-style materials in the future. These feature:
-
-* affine texture mapping
-* vertex lighting
-* screenspace vertex snapping (the mind-boggle wobble)
-* PSX-style water caustics like used in tomb raider
-
-## Status
+## Feature Status
 - [x] PSX-Style post processing
-- [ ] PSX-Style materials
+  - [x] dithering
+  - [x] integer scaling
+  - [x] depth-based fog
+  - [ ] additional fog techniques
+  - [ ] NTSC signal emulation
+  - [ ] CRT emulation
+- [x] PSX-Style materials
+  - [x] 5bpc color precision
+  - [x] vertex lighting
+  - [x] screenspace vertex snapping (the mind-boggle wobble)
+  - [x] PSX-style water caustics (Tomb Raider style)
+    - [x] material with caustics limited to local lights
+  - [ ] lighting effects for fire (torches, etc.)
 
-This plugin has been tested with Windows 11 **only**.
+This plugin has currently been tested with Windows 11 **only**.
 
 ## Installation
 
@@ -34,7 +31,7 @@ This plugin has been tested with Windows 11 **only**.
     *  it's highly reccomended to disable all advanced graphics features like anti aliasing, camera artifacts, etc. if you're aiming for authentic retro visuals
 5. add a **Flax PSX/PostProcessingResources** script to your actor
     * add your custom camera (present in the scene)
-      * if using [CineBlend](https://github.com/GasimoCodes/CineBlend]), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
+      * if using [CineBlend](https://github.com/GasimoCodes/CineBlend), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
 6. add a **Flax PSX/PostProcessing** script to your actor
     * add reference to the *PostProcessingResources* to the Resources slot
     * add the *FlaxPSxPostProcessing* shader to the Shader slot
@@ -57,8 +54,7 @@ You also can use some other aspect ratio, just change *RenderSize* parameter
 
 You'll find more on my projects [on Bluesky](https://bsky.app/hashtag/AcidicDev?author=acidicvoid.com)
 
-If you like this project, please consider supporting me:  
-**[DONATE](https://dono.acidicvoid.com/)**
+If you like this project, please consider supporting me: **[DONATE](https://dono.acidicvoid.com/)**
 
 ### Sources
 

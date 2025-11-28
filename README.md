@@ -51,6 +51,28 @@ You also can use some other aspect ratio, just change *RenderSize* parameter
 
 ![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_16.png)
 
+## Post Processing Options
+
+| Parameter Name                      | Type                   | Description                                                                                                          |  
+|-------------------------------------|------------------------|----------------------------------------------------------------------------------------------------------------------|  
+| Render Size                         | Int2                   | Size of internal GPU texture                                                                                         |
+| Integer Scaling                     | bool                   | enables pixel-perfect scaling, can cause pillar/letter-boxing                                                        |
+| Use Custom Viewport                 | bool                   | Calculates a custom viewport - use if your desired aspect ratio differs from actual game window aspect ratio         |
+| Recalculate Viewport Size On Change | bool                   | Detects changes and re-calculates the viewport if needed                                                             |
+| Resources                           | PostProcessingResources | Actor with PostProcessingResources script attached - stores and handles GPU textures                                 |
+| Fog Color                           | Color                  | Sets fog color - use alpha to adjsut fog strength                                                                    |
+| Fog Boost                           | float                  | Deprecated paramter - does nothing and will be removed                                                               |
+| Fallof                              | float                  | Lerps between two fallof curves - will be refractored for better flexibility                                         |
+| Fog Minimum Value                   | float                  | Lifts the minimum fog value                                                                                          |
+| Scanline Strength                   | float                  | Strength of currently very basic scanline effect - works best with integer scaling                                   |
+| Use dithering                       | bool                   | Enable PSX style dithering effect                                                                                    |
+| Dither strength                     | float                  | Amount of PSX style dithering effect                                                                                 |
+| Dither size                         | int                    | Is 1 or 2 - makes dithering effect more coarse by increasing the pattern's size - can look good at higher resolutions |
+| Use PSX Color Precision             | bool                   | Truncate to 5bpc precision via bitwise AND operator - subtile effect for more authentic PSX colors                   |
+| Use High Color                      | bool                   | Switches GPU texture format to 16-bit colors (otherwise uses 8-bit colors) - currently breaks dithering              |
+
+
+
 ## Support
 
 You'll find more on my projects [on Bluesky](https://bsky.app/hashtag/AcidicDev?author=acidicvoid.com)

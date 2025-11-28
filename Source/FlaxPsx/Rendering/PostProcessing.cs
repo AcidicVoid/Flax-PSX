@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using FlaxEngine;
 
@@ -22,20 +21,24 @@ public class PostProcessing : PostProcessEffect
     {
         public Float2 sceneRenderSize;
         public Float2 upscaledSize;
-        public float  near;
-        public float  far;
+        public float  depthNear;
+        public float  depthFar;
+        public float  depthProd;
+        public float  depthDiff;
+        public float  depthDiffDiffRecip;
         public float  fogBoost;
-        public float  falloff;
-        public Float4 fogColor;
-        public float  fogMin;
-        public float  scanlineStrength;
         public int    useDithering;
+        public int    useHighColor;
+        public Float4 fogColor;
+        public float  scanlineStrength;
         public float  ditherStrength;
         public float  ditherBlend;
         public int    ditherSize;
         public int    usePsxColorPrecision;
-        public int    useHighColor;
+        public Float2 sceneToUpscaleRatio;
+        public int    fogStyle;
     }
+    [Header("Rendering", 12)]
     public Int2 RenderSize = new(640, 480);
     [Tooltip("Use for pixel-perfect scaling, will cause black borders")]
     public bool IntegerScaling = false;
@@ -45,17 +48,25 @@ public class PostProcessing : PostProcessEffect
     public bool RecalculateViewportSizeOnChange = true;
     public PostProcessingResources Resources;
 
+    [Space(10)]
+    [Header("Fog", 12)]
     public Color FogColor = Color.Transparent;
+    [Range(0, 1)]  public int   FogStyle = 1;
     [Range(0, 1)]  public float FogBoost = 0.25f;
     [Range(0, 1)]  public float Falloff = 1f;
-    [Range(0, 1)]  public float FogMinimumValue = 0f;
-    [Range(0, 1)]  public float ScanlineStrength = 0.0f;
+    
+    [Space(10)]
+    [Header("Colors", 12)]
     public bool UseDithering = false;
     [Range(0, 1)]  public float DitherStrength = 1f;
     [Range(0, 1)]  public float DitherBlend = 1f;
-    [Range(1, 2)]  public int DitherSize = 1;
     public bool UsePsxColorPrecision = true;
     public bool UseHighColor = false;
+    
+    [Space(10)]
+    [Header("Other", 12)]
+    [Range(0, 1)]  public float ScanlineStrength = 0.0f;
+    
     [HideInEditor] public Viewport TargetViewport => _targetViewport;
 
     private Int2 _renderSize;
@@ -255,29 +266,45 @@ public class PostProcessing : PostProcessEffect
             desc.PS = Shader.GPU.GetPS("PS_FlaxPsxPostProcessing");
             _psComposer.Init(ref desc);
         }
-
+        
+        // Pre-calculations for efficiency
         var v = Resources!.SceneRenderTask!.View;
+        float far = v.Far;
+        float depthProd = v.Near * far;
+        float depthDiff = far - v.Near;
+        // reciprocal for faster normalization (A / B = A * (1/B))
+        // We use MathF.ReciprocalEstimate() or MathF.Reciprocal() if available,
+        // but 1.0f / diff is standard and accurate for C#.
+        float depthDiffDiffRecip = 1.0f / depthDiff;
+        
+        // Pre-calculated ratio for Scanlines optimization (sceneRenderSize / upscaledSize)
+        Float2 sceneRenderSize = Resources!.SceneRenderTask!.Output.Size;
+        Float2 sceneToUpscaleRatio = sceneRenderSize / Screen.Size;
+
         // Set constant buffer data (memory copy is used under the hood to copy raw data from CPU to GPU memory)
         var cb0 = Shader.GPU.GetCB(0);
         if (cb0 != IntPtr.Zero)
         {
             _composerData = new()
             {
-                sceneRenderSize = Resources!.SceneRenderTask!.Output.Size,
+                sceneRenderSize = sceneRenderSize,
                 upscaledSize = Screen.Size,
-                near = v.Near,
-                far = v.Far,
-                fogColor = new(FogColor.R,FogColor.G,FogColor.B,FogColor.A),
+                depthNear = v.Near,
+                depthFar = far,
+                depthProd = depthProd,
+                depthDiff = depthDiff,
+                depthDiffDiffRecip = depthDiffDiffRecip,
                 fogBoost = FogBoost,
-                falloff = Falloff,
-                fogMin = FogMinimumValue,
-                scanlineStrength = ScanlineStrength,
                 useDithering = UseDithering ? 1 : 0,
+                useHighColor = UseHighColor ? 1 : 0,
+                fogColor = new(FogColor.R,FogColor.G,FogColor.B,FogColor.A),
+                scanlineStrength = ScanlineStrength,
                 ditherStrength = DitherStrength,
                 ditherBlend = DitherBlend,
-                ditherSize = DitherSize,
+                ditherSize = 1,
                 usePsxColorPrecision = UsePsxColorPrecision ? 1 : 0,
-                useHighColor = UseHighColor ? 1 : 0,
+                sceneToUpscaleRatio = sceneToUpscaleRatio,
+                fogStyle = FogStyle,
             };
         
             fixed (ComposerData* cbData = &_composerData)

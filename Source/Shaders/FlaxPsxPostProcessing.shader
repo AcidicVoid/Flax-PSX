@@ -11,19 +11,22 @@
 META_CB_BEGIN(0, Data)
   float2 sceneRenderSize;
   float2 upscaledSize;
-  float  near;
-  float  far;
+  float  depthNear;
+  float  depthFar;
+  float  depthProd;
+  float  depthDiff;
+  float  depthDiffDiffRecip;
   float  fogBoost;
-  float  falloff;
-  float4 fogColor;
-  float  fogMin;
-  float  scanlineStrength;
   int    useDithering;
+  int    useHighColor;
+  float4 fogColor;
+  float  scanlineStrength;
   float  ditherStrength;
   float  ditherBlend;
   int    ditherSize;
   int    usePsxColorPrecision;
-  int    useHighColor;
+  float2 sceneToUpscaleRatio; 
+  int    fogStyle;
 META_CB_END
 
 Texture2D sceneTexture   : register(t0);
@@ -41,15 +44,21 @@ struct frag_out
 
 float NormalizeZ(float z_buffer, float z_near, float z_far)
 {
-    float linear_depth_actual = z_near * z_far / (z_far - z_buffer * (z_far - z_near));
-    return (linear_depth_actual - z_near) / (z_far - z_near);
+    // The core linear depth calculation: L_actual = (N*F) / (F - Z_raw * (F-N))    
+    // Calculate linear depth (L_actual = depthProd / Denominator)
+    float linear_depth_actual = depthProd / (depthFar - z_buffer * depthDiff);
+    
+    // Normalization to [0, 1]: (L_actual - N) * (1 / (F-N))
+    // Uses: depthNear = N, depthDiffDiffRecip = 1.0 / (F-N)
+    return (linear_depth_actual - depthNear) * depthDiffDiffRecip; 
 }
 
+// Optimized Scanlines function using the pre-calculated sceneToUpscaleRatio uniform.
 float Scanlines(float2 uv, float2 sceneRenderSize, float2 upscaledSize, float strength) {
     // Scale UV to upscaled pixel space
     float2 pixelCoord = uv * upscaledSize;
-    // Convert to original scene render space
-    float2 scenePixelCoord = pixelCoord * (sceneRenderSize / upscaledSize);
+    // Convert to original scene render space using pre-calculated ratio
+    float2 scenePixelCoord = pixelCoord * sceneToUpscaleRatio; 
     // Every second horizontal line: use fmod or frac
     float linePattern = fmod(floor(scenePixelCoord.y), 2.0);
     // Return 1.0 for visible lines, 0.0 for scanline gaps
@@ -72,7 +81,10 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
 
     // Get and linearize depth buffer
     float depth = SAMPLE_RT(DepthBuffer, input.TexCoord);
-    float depth01 = NormalizeZ(depth, near, far);
+    float depth01 = NormalizeZ(depth, depthNear, depthFar);
+
+    // Set depth
+    o.depth = depth;
 
     // Dither Strength
     float ditherStr = ditherStrength * useDithering;
@@ -80,17 +92,26 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     // Coords for dither pattern
     float2 ditherUv = floor(input.TexCoord * float2(sceneRenderSize.x * (float)ditherSize, sceneRenderSize.y * (float)ditherSize));
 
-    // Fog
-    half fogFalloff = lerp(FogFalloffOutBack(c1,c2,depth01), FogFalloffOutQuint(depth01), falloff);
-    half fog = clamp(fogFalloff,fogMin,1);
-    scene = half4(lerp(scene.rgb,fog,fogColor.rgb * fogColor.a),1);
+    // Apply fog to the scene color
+    // 1 -> SH1 style fog
+    if (fogStyle == 1) {
+        float fog = SH1Fog(depth01, fogColor.a, fogBoost);
+        scene = half4(lerp(scene.rgb, fogColor.rgb, fogColor.rgb * fog), fog);
+    }
 
-    half4  sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
-           sceneProcessed = lerp(scene, sceneProcessed, ditherBlend);
+    // Color post processing (color range + dithering)
+    half4 sceneProcessed;
 
-    // Combine
+    // Skip the expensive ColorPostProcessing call if both features are disabled
+    if ((useDithering == 0) && (usePsxColorPrecision == 0)) {
+        sceneProcessed = scene; // Use fogged scene directly
+    } else {
+        sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
+        sceneProcessed = lerp(scene, sceneProcessed,  ditherBlend);
+    }   
+    
+    // Assign final color to output
     o.color = sceneProcessed * Scanlines(input.TexCoord, sceneRenderSize, upscaledSize, scanlineStrength);
-    o.depth = depth;
     return o; 
 }
 

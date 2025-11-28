@@ -24,9 +24,6 @@ half4 Dither(half4 col, float2 uv, float ditherStr)
 // Adds PSX style dithering
 half4 ColorPostProcessing(half4 col, float2 uv, float ditherStr, bool psxPrec, bool highColor)
 {
-    // Coloes per pixel
-    int colors = highColor ? HIGH_COLOR_CNT : LOW_COLOR_CNT;
-    
     col *= highColor ? 1 : 255;
     // Apply dithering according to PSY-Q Docs
     col = ditherStr <= 0 ? col : Dither(col, uv, ditherStr);
@@ -38,9 +35,9 @@ half4 ColorPostProcessing(half4 col, float2 uv, float ditherStr, bool psxPrec, b
     }
     else if (!highColor && !psxPrec)
     {
+        // This branch (psxPrec == false) results in no color truncation, only dithering.
         col = lerp((half4)(uint4(col) & LOW_COLOR_CNT), LOW_COLOR_CNT, step(LOW_COLOR_CNT,col));
     }
-    
     return col / (highColor ? 1 : 255);
 }
 

@@ -3,7 +3,7 @@
 	"Version": "0.1",
 	"Company": "",
 	"Copyright": "",
-	"GameTarget": "PsxPlugin",
+	"GameTarget": "FlaxPsxTarget",
 	"EditorTarget": "FlaxPsxEditorTarget",
 	"References": [
 		{

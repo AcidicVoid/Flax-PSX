@@ -14,7 +14,7 @@ namespace AcidicVoid.FlaxPsx
         {
             _description = new PluginDescription
             {
-                Name = "Flax PSX",
+                Name = "FlaxPSX",
                 Category = "Graphics",
                 Author = "AcidicVoid",
                 AuthorUrl = "www.acidicvoid.com",

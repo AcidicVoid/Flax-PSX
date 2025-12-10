@@ -41,18 +41,16 @@ public class PostProcessingResources : Script
     /// </summary>
     public SceneRenderTask SceneRenderTask => _sceneRenderTask;
     private Int2 _currentGameRes;
-
-    public override void OnAwake()
-    {
-        SceneCamera = (CustomCamera) ? CustomCamera : (Camera.MainCamera) ? Camera.MainCamera : Level.FindActor<Camera>();
-    }
-
+    
     /// <summary>
     /// Called when script is enabled. Creates resources and enables render task.
     /// </summary>
     public override void OnEnable()
     {
-        CreateGpuTexture(ref _sceneGpuTexture, _internalRenderSize, true);
+        SceneCamera = (CustomCamera) ? CustomCamera : ((Camera.MainCamera)
+            ? Camera.MainCamera
+            : Level.FindActor<Camera>());
+        CreateGpuTexture(ref _sceneGpuTexture, _internalRenderSize, false, true);
         CreateSceneRenderTask(ref _sceneRenderTask, ref _sceneGpuTexture, SceneCamera, SceneRenderOrder);
         _sceneRenderTask.Enabled = true;
     }
@@ -70,7 +68,8 @@ public class PostProcessingResources : Script
     
     private void CreateGpuTexture(ref GPUTexture texture, Int2 size, bool highColor = false, bool setCurrentGameRes = false, bool isUiTexture = false)
     {
-        DestroyGpuTexture(ref texture);
+        if (texture)
+            DestroyGpuTexture(ref texture);
         GPUTextureDescription desc = GPUTextureDescription.New2D(
             width: size.X,
             height: size.Y,
@@ -86,6 +85,8 @@ public class PostProcessingResources : Script
         
         if (setCurrentGameRes)
             _currentGameRes = size;
+
+        Debug.Log("[PostProcessingResources] Created GPU Texture: " + texture.Format.ToString());
     }
 
     /// <summary>
@@ -97,7 +98,8 @@ public class PostProcessingResources : Script
     /// <param name="order"></param>
     private void CreateSceneRenderTask(ref SceneRenderTask sceneRenderTask, ref GPUTexture texture, Camera camera, int order)
     {
-        DestroySceneRenderTask(ref sceneRenderTask);
+        if (sceneRenderTask)
+            DestroySceneRenderTask(ref sceneRenderTask);
         sceneRenderTask = new SceneRenderTask
         {
             ViewMode = ViewMode.Default,
@@ -108,6 +110,7 @@ public class PostProcessingResources : Script
             Order = order,
             ActorsSource = ActorsSources.ScenesAndCustomActors,
         };
+        Debug.Log("[PostProcessingResources] Created Scene Render Task: " + sceneRenderTask.Output.Format.ToString());
     }
 
 

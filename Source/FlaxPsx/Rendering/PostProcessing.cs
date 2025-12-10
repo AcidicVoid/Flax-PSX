@@ -108,6 +108,7 @@ public class PostProcessing : PostProcessEffect
 
     public override void OnEnable()
     {
+        Debug.Log("[PostProcessing] MainRenderTask availabe: " + MainRenderTask.Instance != null);
         
 #if FLAX_EDITOR
         // Register for asset reloading event and dispose resources that use shader
@@ -141,12 +142,9 @@ public class PostProcessing : PostProcessEffect
         // Screen.Size is fallback option
         // For some reason, MainRenderTask.Instance.Output.Size does not exist in cooked game
         // Todo: Investigate!
-        bool mainRenderTaskAvailable = MainRenderTask.Instance != null;
-
-        if (mainRenderTaskAvailable)
-            return Utils.Float2ToInt2(MainRenderTask.Instance!.Output.Size);
-
-        return Utils.Float2ToInt2(Screen.Size);
+        return MainRenderTask.Instance?.Output?.Size != null ? 
+            Utils.Float2ToInt2(MainRenderTask.Instance.Output.Size) : 
+            Utils.Float2ToInt2(Screen.Size);
     }
 
     public override void OnDisable()

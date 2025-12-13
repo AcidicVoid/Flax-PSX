@@ -12,9 +12,9 @@ namespace AcidicVoid.FlaxPsx.Rendering;
 public class PostProcessing : PostProcessEffect
 {
     [HideInEditor]
-    public Action OnChange;
+    public event Action OnChange;
     [HideInEditor]
-    public Action<Int2> OnResolutionChanged;
+    public event Action<Int2> OnResolutionChanged;
     
     [StructLayout(LayoutKind.Sequential)]
     protected struct ComposerData
@@ -108,8 +108,6 @@ public class PostProcessing : PostProcessEffect
 
     public override void OnEnable()
     {
-        Debug.Log("[PostProcessing] MainRenderTask availabe: " + MainRenderTask.Instance != null);
-        
 #if FLAX_EDITOR
         // Register for asset reloading event and dispose resources that use shader
         Content.AssetReloading += OnAssetReloading;
@@ -176,6 +174,7 @@ public class PostProcessing : PostProcessEffect
             // Trigger Event
             if (OnResolutionChanged != null)
                 OnResolutionChanged.Invoke(_renderSize);
+            _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         }
         if (Resources != null && Resources.InternalRenderSize != _renderSize)
         {

@@ -15,13 +15,13 @@ public class PostProcessingResources : Script
     public MSAALevel AntiAliasing = MSAALevel.None;
     
     [HideInEditor]
-    public Int2 InternalRenderSize => _internalRenderSize;
+    public  Int2 InternalRenderSize => _internalRenderSize;
     private Int2 _internalRenderSize = new(320, 240);
     
     /// <summary>
     /// Custom camera to use
     /// </summary>
-    public Camera CustomCamera;
+    public  Camera CustomCamera;
     private Camera SceneCamera; 
     
     public int SceneRenderOrder = -100;
@@ -33,7 +33,7 @@ public class PostProcessingResources : Script
     /// Gets current GPU texture
     /// </summary>
     private GPUTexture _sceneGpuTexture;
-    public GPUTexture SceneGpuTexture => _sceneGpuTexture;
+    public  GPUTexture SceneGpuTexture => _sceneGpuTexture;
     
     private SceneRenderTask _sceneRenderTask;
     /// <summary>

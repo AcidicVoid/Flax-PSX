@@ -13,6 +13,13 @@ public class PostProcessingResources : Script
     /// Anti Aliasing level. Strongly recommended to keep turned off.
     /// </summary>
     public MSAALevel AntiAliasing = MSAALevel.None;
+
+    public  ActorsSources SceneActorSources = ActorsSources.ScenesAndCustomActors;
+    public  Actor[]       CustomActors = [];
+    private Actor[]       _initialCustomActors = [];
+    
+    [HideInEditor]
+    public  Actor[]  InitialCustomActors =>  _initialCustomActors;
     
     [HideInEditor]
     public  Int2 InternalRenderSize => _internalRenderSize;
@@ -47,6 +54,7 @@ public class PostProcessingResources : Script
     /// </summary>
     public override void OnEnable()
     {
+        _initialCustomActors = CustomActors;
         SceneCamera = (CustomCamera) ? CustomCamera : ((Camera.MainCamera)
             ? Camera.MainCamera
             : Level.FindActor<Camera>());
@@ -108,7 +116,7 @@ public class PostProcessingResources : Script
             Camera = camera,
             Output = texture,
             Order = order,
-            ActorsSource = ActorsSources.ScenesAndCustomActors,
+            ActorsSource = SceneActorSources,
         };
         Debug.Log("[PostProcessingResources] Created Scene Render Task: " + sceneRenderTask.Output.Format.ToString());
     }

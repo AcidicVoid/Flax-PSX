@@ -78,6 +78,8 @@ public class PostProcessing : PostProcessEffect
     private Int2 _targetSize;
     private ComposerData _composerData;
     private GPUPipelineState _psComposer;
+    // Helper var for logs
+    private bool _allowMissingResourcesWarning = true;
     
     private GPUTextureDescription _depthBufferDesc = GPUTextureDescription.New2D(640, 480, 
         PixelFormat.D32_Float, 
@@ -106,6 +108,26 @@ public class PostProcessing : PostProcessEffect
         UseSingleTarget = true; // Ignore underlying image, this overrides existing input
     }
 
+    public bool TryGetResources(out PostProcessingResources resources)
+    {
+        if (!Resources || !Resources.Actor.IsActive
+                       || !Resources?.SceneRenderTask
+                       || !Resources?.SceneRenderTask?.Buffers?.DepthBuffer
+                       || !Resources?.SceneGpuTexture)
+        {
+            if (_allowMissingResourcesWarning)
+            {
+                Debug.LogWarning("[PostProcessing] Post Processing resources are not available!");
+                _allowMissingResourcesWarning = false;
+            }
+            resources = null;
+            return false;
+        }
+        resources = Resources!;
+        return true;
+
+    }
+
     public override void OnEnable()
     {
 #if FLAX_EDITOR
@@ -127,12 +149,18 @@ public class PostProcessing : PostProcessEffect
         
         // Plug into main scene rendering
         MainRenderTask.Instance.AddCustomPostFx(this);
-        
+
         // Disable Scene Rendering on Main Task
         MainRenderTask.Instance.ActorsSource = ActorsSources.None;
 
-        _uiDepthBuffer = new();
-        _uiDepthBuffer.Init(ref _depthBufferDesc);
+        if (_uiDepthBuffer == null)
+        {
+            _uiDepthBuffer = new();
+            _uiDepthBuffer.Init(ref _depthBufferDesc);
+        }
+        
+        // Allow warning (will be set to false when warning has been printed to avoid spam)
+        _allowMissingResourcesWarning = true;
     }
 
     private Int2 GetOutputSize()
@@ -155,16 +183,16 @@ public class PostProcessing : PostProcessEffect
         ViewportSizeChanged -= OnViewportSizeChanged;
     }
 
-    private bool HandleChanges()
+    private bool HandleChanges(PostProcessingResources resources)
     {
         bool changesDetected = false;
 
         if (UseHighColor != _useHighColor)
         {
             _useHighColor = UseHighColor;
-            var desc = Resources.SceneGpuTexture.Description;
+            var desc = resources.SceneGpuTexture.Description;
             desc.Format = _useHighColor ? PostProcessingResources.PixelFormat8 : PostProcessingResources.PixelFormat16;
-            Resources.SceneGpuTexture.Init(ref desc);
+            resources.SceneGpuTexture.Init(ref desc);
         }
         
         if (RenderSize != _renderSize)
@@ -176,9 +204,9 @@ public class PostProcessing : PostProcessEffect
                 OnResolutionChanged.Invoke(_renderSize);
             _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         }
-        if (Resources != null && Resources.InternalRenderSize != _renderSize)
+        if (resources.InternalRenderSize != _renderSize)
         {
-            Resources.ResizeGpuTexture(RenderSize);
+            resources.ResizeGpuTexture(RenderSize);
             changesDetected = true;
         }
         if (IntegerScaling != _integerScaling)
@@ -225,8 +253,22 @@ public class PostProcessing : PostProcessEffect
 #if FLAX_EDITOR
         Profiler.BeginEventGPU("Custom Rendering");
 #endif
+        // make sure the required resources exist, otherwise skip rendering;
+        // rendering without the resources will crash the game
+        bool resourcesAvailable = TryGetResources(out PostProcessingResources resources);
+        if (!resourcesAvailable)
+            return;
+        
+        // Extra safety-check for race condition
+        if (resources.SceneRenderTask.Buffers.DepthBuffer.Width == 0) 
+            return;
+        
+        Debug.Log("TESTING BUFFERS:");
+        Debug.Log("DepthBuffer " + (resources.SceneRenderTask.Buffers?.DepthBuffer ? "available" : "not available"));
+        Debug.Log("BufferSize  " + (resources.SceneRenderTask.Buffers?.Size.X.ToString() ?? "null") + "x" + (resources.SceneRenderTask.Buffers?.Size.Y.ToString() ?? "null"));
+        
         // If any of the main rendering options have changed, restart the script
-        HandleChanges();
+        HandleChanges(resources);
         
         // Recalculate the viewport if needed
         if (RecalculateViewportSizeOnChange && (_targetSize != GetOutputSize()))
@@ -238,16 +280,6 @@ public class PostProcessing : PostProcessEffect
         // Skip Rendering when custom viewport is too small
         if (UseCustomViewport && ((_targetSize.X < 320) || (_targetSize.Y < 240)))
         {
-            Debug.Log("Composer Rendering skipped");
-            return;
-        }
-        
-        // make sure the required resources exist, otherwise skip rendering;
-        // rendering without the resources will crash the game
-        if (!Resources || 
-            !Resources?.SceneRenderTask?.Output)
-        {
-            Debug.LogWarning("Composer Rendering skipped due to missing render resources");
             return;
         }
 
@@ -265,7 +297,7 @@ public class PostProcessing : PostProcessEffect
         }
         
         // Pre-calculations for efficiency
-        var v = Resources!.SceneRenderTask!.View;
+        var v = resources.SceneRenderTask!.View;
         float far = v.Far;
         float depthProd = v.Near * far;
         float depthDiff = far - v.Near;
@@ -275,7 +307,7 @@ public class PostProcessing : PostProcessEffect
         float depthDiffDiffRecip = 1.0f / depthDiff;
         
         // Pre-calculated ratio for Scanlines optimization (sceneRenderSize / upscaledSize)
-        Float2 sceneRenderSize = Resources!.SceneRenderTask!.Output.Size;
+        Float2 sceneRenderSize = resources.SceneRenderTask!.Output.Size;
         Float2 sceneToUpscaleRatio = sceneRenderSize / Screen.Size;
 
         // Set constant buffer data (memory copy is used under the hood to copy raw data from CPU to GPU memory)
@@ -307,21 +339,18 @@ public class PostProcessing : PostProcessEffect
             fixed (ComposerData* cbData = &_composerData)
                 context.UpdateCB(cb0, new IntPtr(cbData));
         }
-
-        // Input.MousePosition += sourceTexture.Size - _targetSize;
-        
         
         // Clear
         context.Clear(sourceTexture.View(), Color.Transparent);
         context.ClearDepth(MainRenderTask.Instance.Buffers.DepthBuffer.View());
 
         // Draw objects to depth buffer
-        Renderer.DrawSceneDepth(context, Resources!.SceneRenderTask!, MainRenderTask.Instance.Buffers.DepthBuffer, (Actor[])[]);
+        Renderer.DrawSceneDepth(context, resources.SceneRenderTask, MainRenderTask.Instance.Buffers.DepthBuffer, (Actor[])[]);
 
         // Draw fullscreen triangle using custom Pixel Shader
         context.BindCB(0, cb0);
-        context.BindSR(0, Resources!.SceneRenderTask!.Output);
-        context.BindSR(2, Resources!.SceneRenderTask!.Buffers.DepthBuffer.View());
+        context.BindSR(0, resources.SceneRenderTask.Output);
+        context.BindSR(2, resources.SceneRenderTask.Buffers.DepthBuffer.View());
         context.BindSR(3, _uiDepthBuffer.View());
 
         context.SetState(_psComposer);
@@ -330,6 +359,8 @@ public class PostProcessing : PostProcessEffect
         if (UseCustomViewport)
             context.SetViewport(ref _targetViewport);
 
+        // Source texture holds the final viewport's dimensions, NOT the low res
+        // This also applies if UseCustomViewport is set to true
         context.SetRenderTarget(sourceTexture.View());
         context.DrawFullscreenTriangle();
 #if FLAX_EDITOR

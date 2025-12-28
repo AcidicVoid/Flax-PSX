@@ -1,4 +1,5 @@
-﻿using FlaxEngine;
+﻿using System;
+using FlaxEngine;
 
 namespace AcidicVoid.FlaxPsx.Rendering;
 
@@ -15,7 +16,7 @@ public class PostProcessingResources : Script
     public MSAALevel AntiAliasing = MSAALevel.None;
 
     public  ActorsSources SceneActorSources = ActorsSources.ScenesAndCustomActors;
-    public  Actor[]       CustomActors = [];
+    private  Actor[]      _customActors = [];
     private Actor[]       _initialCustomActors = [];
     
     [HideInEditor]
@@ -41,12 +42,34 @@ public class PostProcessingResources : Script
     /// </summary>
     private GPUTexture _sceneGpuTexture;
     public  GPUTexture SceneGpuTexture => _sceneGpuTexture;
+
+    public bool TryGetGpuTexture(out GPUTexture gpuTexture)
+    {
+        if (_sceneGpuTexture != null)
+        {
+            gpuTexture = _sceneGpuTexture;
+            return true;
+        }
+        gpuTexture = null;
+        return false;
+    }
     
     private SceneRenderTask _sceneRenderTask;
     /// <summary>
     /// Gets current scene render task
     /// </summary>
     public SceneRenderTask SceneRenderTask => _sceneRenderTask;
+    public bool TryGetSceneRenderTask(out SceneRenderTask sceneRenderTask)
+    {
+        if (_sceneRenderTask != null)
+        {
+            sceneRenderTask = _sceneRenderTask;
+            return true;
+        }
+        sceneRenderTask = null;
+        return false;
+    }
+    
     private Int2 _currentGameRes;
     
     /// <summary>
@@ -54,13 +77,37 @@ public class PostProcessingResources : Script
     /// </summary>
     public override void OnEnable()
     {
-        _initialCustomActors = CustomActors;
-        SceneCamera = (CustomCamera) ? CustomCamera : ((Camera.MainCamera)
-            ? Camera.MainCamera
-            : Level.FindActor<Camera>());
-        CreateGpuTexture(ref _sceneGpuTexture, _internalRenderSize, false, true);
-        CreateSceneRenderTask(ref _sceneRenderTask, ref _sceneGpuTexture, SceneCamera, SceneRenderOrder);
-        _sceneRenderTask.Enabled = true;
+        try
+        {
+            if (_sceneRenderTask)
+            {
+                _sceneRenderTask.Enabled = false;
+                DestroySceneRenderTask(ref _sceneRenderTask);
+            }
+            if (_sceneGpuTexture)
+                DestroyGpuTexture(ref _sceneGpuTexture);
+            
+            _initialCustomActors = _customActors;
+            SceneCamera = (CustomCamera) ? CustomCamera : ((Camera.MainCamera)
+                ? Camera.MainCamera
+                : Level.FindActor<Camera>());
+
+            if (SceneCamera == null)
+            {
+                Debug.LogError("[PostProcessingResources] Couldn\\t get camera.");
+                Actor.IsActive = false;
+                return;
+            }
+            
+            CreateGpuTexture(ref _sceneGpuTexture, _internalRenderSize, false, true);
+            CreateSceneRenderTask(ref _sceneRenderTask, ref _sceneGpuTexture, SceneCamera, SceneRenderOrder);
+            _sceneRenderTask.Enabled = true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[PostProcessingResources] Failed at OnEnable");
+            Debug.LogError(ex);
+        }
     }
 
     /// <summary>
@@ -139,6 +186,7 @@ public class PostProcessingResources : Script
     /// <param name="SceneRenderTask">Reference of the SceneRenderTask to destroy</param>
     private void DestroySceneRenderTask(ref SceneRenderTask task)
     {
+        Debug.Log("Destroying Scene Render Task");
         if (task)
         {
             task.Enabled = false;
@@ -153,6 +201,7 @@ public class PostProcessingResources : Script
     /// <param name="texture">The texture to destroy</param>
     private void DestroyGpuTexture(ref GPUTexture texture)
     {
+        Debug.Log("Destroying GPU Texture");
         if (texture)
         {
             texture.ReleaseGPU();

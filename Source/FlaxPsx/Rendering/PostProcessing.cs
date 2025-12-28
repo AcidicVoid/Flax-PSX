@@ -263,10 +263,6 @@ public class PostProcessing : PostProcessEffect
         if (resources.SceneRenderTask.Buffers.DepthBuffer.Width == 0) 
             return;
         
-        Debug.Log("TESTING BUFFERS:");
-        Debug.Log("DepthBuffer " + (resources.SceneRenderTask.Buffers?.DepthBuffer ? "available" : "not available"));
-        Debug.Log("BufferSize  " + (resources.SceneRenderTask.Buffers?.Size.X.ToString() ?? "null") + "x" + (resources.SceneRenderTask.Buffers?.Size.Y.ToString() ?? "null"));
-        
         // If any of the main rendering options have changed, restart the script
         HandleChanges(resources);
         

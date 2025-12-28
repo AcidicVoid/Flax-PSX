@@ -42,6 +42,7 @@ public class PostProcessingResources : Script
     /// </summary>
     private GPUTexture _sceneGpuTexture;
     public  GPUTexture SceneGpuTexture => _sceneGpuTexture;
+    private bool _allowMissingResourcesWarning;
 
     public bool TryGetGpuTexture(out GPUTexture gpuTexture)
     {
@@ -70,6 +71,27 @@ public class PostProcessingResources : Script
         return false;
     }
     
+    public bool TryGetResources(out PostProcessingResources resources)
+    {
+        if (!Actor.IsActive
+            || !SceneRenderTask
+            || !SceneRenderTask?.Buffers?.DepthBuffer
+            || !SceneGpuTexture)
+        {
+            if (_allowMissingResourcesWarning)
+            {
+                Debug.LogWarning("[PostProcessing] Post Processing resources are not available!");
+                _allowMissingResourcesWarning = false;
+            }
+            resources = null;
+            return false;
+        }
+        _allowMissingResourcesWarning = true;
+        resources = this;
+        return true;
+
+    }
+    
     private Int2 _currentGameRes;
     
     /// <summary>
@@ -79,6 +101,7 @@ public class PostProcessingResources : Script
     {
         try
         {
+            _allowMissingResourcesWarning = true;
             if (_sceneRenderTask)
             {
                 _sceneRenderTask.Enabled = false;

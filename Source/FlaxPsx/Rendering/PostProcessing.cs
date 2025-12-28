@@ -78,8 +78,6 @@ public class PostProcessing : PostProcessEffect
     private Int2 _targetSize;
     private ComposerData _composerData;
     private GPUPipelineState _psComposer;
-    // Helper var for logs
-    private bool _allowMissingResourcesWarning = true;
     
     private GPUTextureDescription _depthBufferDesc = GPUTextureDescription.New2D(640, 480, 
         PixelFormat.D32_Float, 
@@ -106,26 +104,6 @@ public class PostProcessing : PostProcessEffect
     protected void CustomPostProcessing()
     {
         UseSingleTarget = true; // Ignore underlying image, this overrides existing input
-    }
-
-    public bool TryGetResources(out PostProcessingResources resources)
-    {
-        if (!Resources || !Resources.Actor.IsActive
-                       || !Resources?.SceneRenderTask
-                       || !Resources?.SceneRenderTask?.Buffers?.DepthBuffer
-                       || !Resources?.SceneGpuTexture)
-        {
-            if (_allowMissingResourcesWarning)
-            {
-                Debug.LogWarning("[PostProcessing] Post Processing resources are not available!");
-                _allowMissingResourcesWarning = false;
-            }
-            resources = null;
-            return false;
-        }
-        resources = Resources!;
-        return true;
-
     }
 
     public override void OnEnable()
@@ -158,9 +136,6 @@ public class PostProcessing : PostProcessEffect
             _uiDepthBuffer = new();
             _uiDepthBuffer.Init(ref _depthBufferDesc);
         }
-        
-        // Allow warning (will be set to false when warning has been printed to avoid spam)
-        _allowMissingResourcesWarning = true;
     }
 
     private Int2 GetOutputSize()
@@ -255,7 +230,8 @@ public class PostProcessing : PostProcessEffect
 #endif
         // make sure the required resources exist, otherwise skip rendering;
         // rendering without the resources will crash the game
-        bool resourcesAvailable = TryGetResources(out PostProcessingResources resources);
+        PostProcessingResources resources = null;
+        bool resourcesAvailable = Resources?.TryGetResources(out resources) ?? false;
         if (!resourcesAvailable)
             return;
         
@@ -357,7 +333,8 @@ public class PostProcessing : PostProcessEffect
 
         // Source texture holds the final viewport's dimensions, NOT the low res
         // This also applies if UseCustomViewport is set to true
-        context.SetRenderTarget(sourceTexture.View());
+        //context.SetRenderTarget(sourceTexture.View());
+        context.SetRenderTarget(output.View());
         context.DrawFullscreenTriangle();
 #if FLAX_EDITOR
         Profiler.EndEventGPU();

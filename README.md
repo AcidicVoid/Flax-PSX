@@ -10,8 +10,9 @@ Because the scene is actually rendered at a low resolution — rather than rende
   - [x] integer scaling
   - [x] depth-based fog
   - [ ] additional fog techniques
-  - [ ] NTSC signal emulation
-  - [ ] CRT emulation
+- [x] additional post processing (optional)
+  - [x] basic implementation of CRT-like features
+  - [ ] CRT / NTSC signal emulation
 - [x] PSX-Style materials
   - [x] 5bpc color precision
   - [x] vertex lighting
@@ -20,7 +21,10 @@ Because the scene is actually rendered at a low resolution — rather than rende
     - [x] material with caustics limited to local lights
   - [ ] lighting effects for fire (torches, etc.)
 
-This plugin has currently been tested with Windows 11 **only**.
+### Notes:  
+* You can also just use the materials, without all post-processing  
+* Using the additional post processing **only** should work but is not tested - I will probably test it properly in the future and make adjustments if necessary  
+* This plugin has currently been tested with Windows 11 **only**.
 
 ## Installation
 
@@ -32,10 +36,14 @@ This plugin has currently been tested with Windows 11 **only**.
 5. add a **Flax PSX/PostProcessingResources** script to your actor
     * add your custom camera (present in the scene)
       * if using [CineBlend](https://github.com/GasimoCodes/CineBlend), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
-6. add a **Flax PSX/PostProcessing** script to your actor
+6. add a **Flax PSX/PostProcessing** script to your actor (doesn't need to be same actor as from step 5)
     * add reference to the *PostProcessingResources* to the Resources slot
-    * add the *FlaxPSxPostProcessing* shader to the Shader slot
-    * activate *Use Single Target*
+    * add the *FlaxPsxPostProcessing* shader to the Shader slot
+    * play around with the settings
+7. **OPTIONAL** add a **Flax PSX/AdditionalPostProcessing** script to your actor (doesn't need to be same actor as from step 5 or step 6)
+    * add reference to the *PostProcessingResources* to the Resources slot
+    * add the *FlaxPsxAdditionalPostProcessing* shader to the Shader 
+    * if you want to use a slot-mask, add one to the texture slot - CC0 slotmask images from [MAME](https://github.com/mamedev/mame) included
     * play around with the settings
 
 It now should look something like this:  

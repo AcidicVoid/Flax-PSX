@@ -2,7 +2,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using AcidicVoid.FlaxPsx.Rendering;
 using FlaxEngine;
 
 namespace AcidicVoid.FlaxPsx.Rendering;
@@ -14,17 +13,35 @@ namespace AcidicVoid.FlaxPsx.Rendering;
 [ExecuteInEditMode]
 public class AdditionalPostProcessing : PostProcessEffect
 {
+    public Texture SlotMask;
+    
     [StructLayout(LayoutKind.Sequential)]
     protected struct AdditionalPostProcessingData
     {
         public Float2 resolution;
         public Float2 texelSize;
+        public Float2 slotmaskSize;
+        public float  aspectRatio;
+        public float  internalAspectRatio;
+        public int    slotmaskBlendMode;
+        public float  slotmaskScale;
+        public float  slotMaskStrength;
+        public float  blurX;
+        public float  blurY;
+        public float  brightnessBoost;
         public float  blendWithOriginal;
     }
     
     // Params
-    [Range(0f,1f)]
-    public float Blend = 0.5f;
+    [Range( 0f, 1f)] public float Blend = 0.5f;
+    [Range(-4f, 4f)] public int   SlotMaskScale = 1;
+    [Range( 0.01f, 100f)] public float SlotMaskScaleMultiplierOverride = 1f;
+    [Tooltip("0 = Off, 1 = Multiply, 2 = Overlay, 3 = Screen")]
+    [Range( 0f, 3f)] public int SlotmaskBlendMode = 0;
+    [Range( 0f, 1f)] public float SlotMaskStrength = 0.5f;
+    [Range( 0f, 1f)] public float BlurX = 0.1f;
+    [Range( 0f, 1f)] public float BlurY = 0.1f;
+    [Range( 0f, 1f)] public float BrightnessBoost = 0.1f;
     
     public PostProcessingResources Resources;
     private GPUPipelineState _ps;
@@ -104,6 +121,14 @@ public class AdditionalPostProcessing : PostProcessEffect
             Screen.Size;
         var viewport = new Viewport(new(0, 0), viewportSize);
         
+        // Calculate actual slotmask value
+        float slotmaskScale = 1f;
+        if (SlotMaskScale > 0)
+            slotmaskScale = Mathf.Floor(SlotMaskScale); // Floor for safety
+        else if (SlotMaskScale < 0)
+            slotmaskScale = 1f / Mathf.Abs(Mathf.Floor(SlotMaskScale));
+        slotmaskScale *= SlotMaskScaleMultiplierOverride;
+
         // Set constant buffer data (memory copy is used under the hood to copy raw data from CPU to GPU memory)
         var cb0 = Shader.GPU.GetCB(0);
         if (cb0 != IntPtr.Zero)
@@ -111,7 +136,16 @@ public class AdditionalPostProcessing : PostProcessEffect
             _additionalPostProcessingData = new()
             {
                 resolution = source.Size,
+                aspectRatio = source.Size.X / source.Size.Y,
+                internalAspectRatio = (float) Resources.InternalRenderSize.X / (float) Resources.InternalRenderSize.Y,
                 texelSize = 1f / source.Size,
+                slotmaskSize = SlotMask?.Size ?? new(1,1),
+                slotmaskBlendMode = SlotmaskBlendMode,
+                slotmaskScale = slotmaskScale,
+                slotMaskStrength = SlotMaskStrength,
+                blurX = BlurX,
+                blurY = BlurY,
+                brightnessBoost = BrightnessBoost,
                 blendWithOriginal = Blend
             };
             fixed (AdditionalPostProcessingData* cbData = &_additionalPostProcessingData)
@@ -121,6 +155,8 @@ public class AdditionalPostProcessing : PostProcessEffect
         // Set shader data
         context.BindCB(0, cb0);
         context.BindSR(0, source);
+        if (SlotMask?.Texture)
+            context.BindSR(1, SlotMask!.Texture);
         context.SetState(_ps);
 
         // Draw

@@ -12,7 +12,7 @@ Because the scene is actually rendered at a low resolution — rather than rende
   - [ ] additional fog techniques
 - [x] additional post processing (optional)
   - [x] basic implementation of CRT-like features
-  - [ ] CRT / NTSC signal emulation
+  - [ ] accurate CRT / NTSC signal emulation (has currently no priority)
 - [x] PSX-Style materials
   - [x] 5bpc color precision
   - [x] vertex lighting
@@ -62,20 +62,48 @@ You also can use some other aspect ratio, just change *RenderSize* parameter
 
 | Parameter Name                     | Type                    | Description                                                                                                  |  
 |------------------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------|  
-| Render Size                        | Int2                    | Size of internal GPU texture                                                                                 |
+| Render Size                        | Int2                    | size of internal GPU texture                                                                                 |
 | Integer Scaling                    | bool                    | enables pixel-perfect scaling, can cause pillar/letter-boxing                                                |
-| Use Custom Viewport                | bool                    | Calculates a custom viewport - use if your desired aspect ratio differs from actual game window aspect ratio |
-| Recalculate Viewport Size On Change | bool                    | Detects changes and re-calculates the viewport if needed                                                     |
-| Resources                          | PostProcessingResources | Actor with PostProcessingResources script attached - stores and handles GPU textures                         |
-| Fog Style                          | int                     | `0: no fog` `1: SH1 style fog`                                                                               |
-| Fog Color                          | Color                   | Sets fog color - use alpha to adjsut fog density                                                             |
-| Fog Boost                          | float                   | Makes fog appear nearer or more dense, depending on fog style                                                |
-| Use dithering                      | bool                    | Enable PSX style dithering effect                                                                            |
-| Dither strength                    | float                   | Amount of PSX style dithering effect                                                                         |
+| Use Custom Viewport                | bool                    | calculates a custom viewport - use if your desired aspect ratio differs from actual game window aspect ratio |
+| Recalculate Viewport Size On Change | bool                   | detects changes and re-calculates the viewport if needed                                                     |
+| Resources                          | PostProcessingResources | actor with PostProcessingResources script attached - stores and handles GPU textures                         |
+| Fog Style                          | int                     | `0`: no fog `1`: SH1 style fog                                                                               |
+| Fog Color                          | Color                   | sets fog color - use alpha to adjsut fog density                                                             |
+| Fog Boost                          | float                   | makes fog appear nearer or more dense, depending on fog style                                                |
+| Use dithering                      | bool                    | enable PSX style dithering effect                                                                            |
+| Dither strength                    | float                   | amount of PSX style dithering effect                                                                         |
 | Dither blend                       | float                   | blends dithered scene with original                                                                          |
-| Use PSX Color Precision            | bool                    | Truncate to 5bpc precision via bitwise AND operator - subtile effect for more authentic PSX colors           |
-| Use High Color                     | bool                    | Switches GPU texture format to 16-bit colors (otherwise uses 8-bit colors) - currently breaks dithering      |
-| Scanline Strength                  | float                   | Strength of currently very basic scanline effect - works best with integer scaling                           |
+| Use PSX Color Precision            | bool                    | truncate to 5bpc precision via bitwise AND operator - subtile effect for more authentic PSX colors           |
+| Use High Color                     | bool                    | switches GPU texture format to 16-bit colors (otherwise uses 8-bit colors) - currently breaks dithering      |
+| Scanline Strength                  | float                   | strength of currently very basic scanline effect - works best with integer scaling, will be replaced at some point |
+
+## Additional Post Processing Options
+
+| Parameter Name                     | Type                    | Description                                                                                                  |  
+|------------------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------|  
+| SlotMask                           | Texture                 | Slotmask overlay, can also be used for custom scanlines |
+| CrtOverlay                         | Texture                 | CRT overlay, intended to display a CRT frame, will be ignored if no texture is provided |
+| SlotMaskScale                      | int                     | scaling of the slotmask, for adjustment |
+| SlotMaskScaleMultiplierOverride    | float                   | further slotmask scaling adjustment |
+| SlotmaskBlendMode                  | int                     | blend-mode for slotmask overlay: `0`: Off, `1`: Multiply, `2`: Overlay, `3`: Screen |
+| SlotMaskStrength                   | float                   | slotmask strength |
+| CrtOverlayStretchX                 | float                   | horizontal stretch of CRT overlay, for adjustment |
+| CrtOverlayStretchY                 | float                   | vertical stretch of CRT overlay, for adjustment |
+| CurvatureX                         | float                   | CRT-like curvature on X axis |
+| CurvatureY                         | float                   | CRT-like curvature on Y axis |
+| BlurX                              | float                   | X axis blur |
+| BlurY                              | float                   | Y axis blur |
+| BrightnessBoost                    | float                   | boost brightness |
+
+BrigthnessBoost uses exposure-like calculation:
+```
+if (brightnessBoost > 0.001)
+{
+    const half stops = (half)(2.0 * saturate(brightnessBoost)); // 0..2 stops
+    const half exposure = exp2(stops);                          // 1..4
+    scene.rgb = Tonemap_Exp(scene.rgb * exposure);
+}
+```
 
 ## Support
 

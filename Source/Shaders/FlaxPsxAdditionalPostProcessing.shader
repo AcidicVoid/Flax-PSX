@@ -16,17 +16,24 @@ META_CB_BEGIN(0, Data)
     float2 slotmaskSize;
     float  aspectRatio;          // viewport aspect ratio  
     float  internalAspectRatio;  // aspect ratio of low-res renderer
+    float  crtOverlayStretchX;
+    float  crtOverlayStretchY;
+    float  curvatureX;
+    float  curvatureY;
+    int    useCrtOverlay;
     int    slotmaskBlendMode;
-    float  slotmaskScale;        // expected 0..1
-    float  slotMaskStrength;     // expected 0..1
-    float  blurX;                // scale in X
-    float  blurY;                // scale in Y
-    float  brightnessBoost;      // expected 0..1 (0 = off, 1 = strong)
-    float  blendWithOriginal;    // expected 0..1 (0 = fully processed, 1 = fully original)
+    float  slotmaskScale;
+    float  slotMaskStrength;
+    float  blurX;
+    float  blurY;
+    float2 pillarboxMin;
+    float2 pillarboxMax;
+    float  brightnessBoost;
 META_CB_END
 
 Texture2D sceneTexture : register(t0);
-Texture2D slMskTexture : register(t1);
+Texture2D slotMaskTexture : register(t1);
+Texture2D crtTexture : register(t2);
 
 static const float kBlurOffsets[5] =
 {
@@ -37,7 +44,12 @@ static const float kCoefficients[5] =
 {
     0.2270270270, 0.1945945946, 0.1216216216, 0.0540540541, 0.0162162162
 };
-
+/*
+static float Max3(float a, float b, float c)
+{
+    return max(a, max(b, c));
+}
+*/
 static half3 Tonemap_Exp(half3 c)
 {
     return 1.0h - exp(-c);
@@ -59,31 +71,60 @@ META_PS(true, FEATURE_LEVEL_ES3)
 frag_out PS_FlaxPsxAdditionalPostProcessing(Quad_VS2PS input)
 {
     frag_out o;
+    float2 uv = input.TexCoord;
 
-    const half3 original = sceneTexture.Sample(SamplerPointClamp, input.TexCoord);
-    half3 scene = original;
-    bool  pillarbox = !all(abs(input.TexCoord - 0.5) <= min(1.0, float2(internalAspectRatio / aspectRatio, aspectRatio / internalAspectRatio)) * 0.5);
-
-    // Gaussian-ish blur around the original scene sample
-    half3 blurred = original * (half)kCoefficients[0];
-    if (blurX > 0.01 || blurY > 0.01)
+    // Calculate pillar-box area
+    const bool pillarbox = any(uv < pillarboxMin) || any(uv > pillarboxMax);
+    if (pillarbox) 
     {
+        o.color = half3(0,0,0);
+        return o;
+    }
+
+    // CRT Overlay
+    half4 crtOverlay = half4(0,0,0,0);    
+    if (useCrtOverlay == 1)
+    {
+        float2 crtUv = uv - 0.5;
+
+        // Aspect-ratio compensation (unchanged)
+        crtUv.x *= aspectRatio / internalAspectRatio;
+
+        // Stretch: 1.0 = original, 0.5 = half-size
+        crtUv /= float2(crtOverlayStretchX, crtOverlayStretchY);
+        crtUv += 0.5;
+        crtOverlay = any(crtUv < 0.0) || any(crtUv > 1.0) ? half4(0,0,0,0) : crtTexture.Sample(SamplerLinearClamp, crtUv);
+    }
+
+    // Apply curvature
+    if (curvatureX > 0.001 || curvatureY > 0.001)
+    {
+        float2 d = uv - 0.5;
+        float2 curvature = float2(curvatureX, curvatureY);
+        float k = d.x * d.x * curvature.x + d.y * d.y * curvature.y; // Axis-weighted squared distance
+        uv = d * (1.0 + k) + 0.5;
+    }
+
+    const half3 original = sceneTexture.Sample(SamplerPointClamp, uv);
+    half3 scene = original;
+
+    // Gaussian-ish blur
+    if (blurX > 0.001 || blurY > 0.001)  // Use blur factors to determine if blur is enabled
+    {
+        half3 blurred = original * (half)kCoefficients[0];
         [unroll]
-        for (int i = 1; i < 5; i++)
+        for (int i = 1; i < 5; i++)  // Always use all 5 samples
         {
             const float2 tapOffset =
                 float2(texelSize.x * kBlurOffsets[i] * blurX,
                        texelSize.y * kBlurOffsets[i] * blurY);
 
-            blurred  += sceneTexture.Sample(SamplerLinearClamp, input.TexCoord + tapOffset) * (half)kCoefficients[i];
-            blurred  += sceneTexture.Sample(SamplerLinearClamp, input.TexCoord - tapOffset) * (half)kCoefficients[i];
+            blurred += sceneTexture.Sample(SamplerLinearClamp, uv + tapOffset) * (half)kCoefficients[i];
+            blurred += sceneTexture.Sample(SamplerLinearClamp, uv - tapOffset) * (half)kCoefficients[i];
         }
-        const half blurMix = (half)saturate(max(blurX, blurY));
-        scene = lerp(scene, blurred, blurMix);
+        const half blurStrength = (half)saturate(max(blurX, blurY));
+        scene = lerp(scene, blurred, blurStrength);
     }
-
-    // Saturation for safety
-    blurred = saturate(blurred);
 
     // Exposure-like brightness (0..1 -> ~0..+2 stops), then tone-map back into 0..1-ish.
     if (brightnessBoost > 0.001)
@@ -94,27 +135,28 @@ frag_out PS_FlaxPsxAdditionalPostProcessing(Quad_VS2PS input)
     }
 
     // Slot-mask modulation
-    if (!pillarbox && (slotmaskBlendMode > 0.5) && (slotMaskStrength > 0.001))
+    if ((slotmaskBlendMode >= 1) && (slotMaskStrength > 0.001))
     {
-        half3 slotmask = slMskTexture.Sample(SamplerLinearWrap, input.TexCoord * slotmaskSize / slotmaskScale).rgb;
-        if (slotmaskBlendMode == 1) {
-            // Multiply
-            slotmask *= scene.rgb;
+        half3 slotmask = slotMaskTexture.Sample(SamplerLinearWrap, uv * slotmaskSize / slotmaskScale).rgb;
+        half3 blended = slotmask * scene.rgb; // Default: multiply
+        if (slotmaskBlendMode > 1)
+        {
+            blended = (slotmaskBlendMode < 3) 
+                ? BlendOverlay(scene.rgb, slotmask)   // mode 2
+                : BlendScreen(scene.rgb, slotmask);    // mode 3
         }
-        else if (slotmaskBlendMode == 2) {
-            // Overlay
-            slotmask = BlendOverlay((half3)scene.rgb, slotmask);
-        }
-        else if (slotmaskBlendMode == 3) {
-            // Screen
-            slotmask = BlendScreen((half3)scene.rgb, slotmask);
-        }
-        scene = lerp(scene, slotmask, (half)saturate(slotMaskStrength));
+        scene = lerp(scene, blended, (half)saturate(slotMaskStrength));
     }
 
-    // Combine processed + blur, then optionally blend back with original
-    const half t = (half)saturate(blendWithOriginal);
-    o.color = (half3)saturate(lerp(scene, original, t));
+    scene = saturate(scene); 
+    
+    // Apply CRT Overlay
+    if (useCrtOverlay == 1)
+    {
+        scene = lerp(scene, crtOverlay, crtOverlay.a);
+    }
+
+    o.color = scene;
     return o;
 }
 

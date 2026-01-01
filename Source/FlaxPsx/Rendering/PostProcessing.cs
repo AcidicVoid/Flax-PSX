@@ -53,7 +53,6 @@ public class PostProcessing : PostProcessEffect
     public Color FogColor = Color.Transparent;
     [Range(0, 1)]  public int   FogStyle = 1;
     [Range(0, 1)]  public float FogBoost = 0.25f;
-    [Range(0, 1)]  public float Falloff = 1f;
     
     [Space(10)]
     [Header("Colors", 12)]

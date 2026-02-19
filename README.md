@@ -7,14 +7,13 @@ Because the scene is actually rendered at a low resolution — rather than rende
 ## Feature Status
 - [x] PSX-Style post processing
   - [x] dithering
-  - [x] integer scaling
-  - [x] depth-based fog
-  - [ ] additional fog techniques
 - [x] additional post processing (optional)
   - [x] basic implementation of CRT-like features
-  - [ ] accurate CRT / NTSC signal emulation (has currently no priority)
+  - [x] integer scaling
+- [x] custom fx-chain by post processing materials
+  - [x] depth-based fog
 - [x] PSX-Style materials
-  - [x] 5bpc color precision
+  - [x] 5bpc color precision (high-color available)
   - [x] vertex lighting
   - [x] screenspace vertex snapping (the mind-boggle wobble)
   - [x] PSX-style water caustics (Tomb Raider style)
@@ -26,8 +25,9 @@ Because the scene is actually rendered at a low resolution — rather than rende
 * Using the additional post processing **only** should work but is not tested - I will probably test it properly in the future and make adjustments if necessary  
 * This plugin has currently been tested with Windows 11 **only**.
 
+### Breaking changes:
+* The current version (2026.02) has new post-processing where fog and scanlines were removed. These will be replaced by post processing materials - this will offer more flexibility and a custom FX chain. A LEGACY VERSION IS INCLUDED BUT IS NO LONGER MAINTAINED!
 ## Installation
-
 1. go to Tools → Plugins to open the Plugins window
 2. click **Clone Project**
 3. enter ``Flax PSX`` as *Plugin Name* and this repository as *Git Path*: `git@github.com:AcidicVoid/Flax-PSX.git`

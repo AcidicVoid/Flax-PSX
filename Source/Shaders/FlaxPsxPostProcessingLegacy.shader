@@ -1,27 +1,32 @@
 // www.acidicvoid.com 
 
-#ifndef __FLAX_PSX__POST_PROCESSING__
-#define __FLAX_PSX__POST_PROCESSING__
+#ifndef __FLAX_PSX__POST_PROCESSING_LEGACY__
+#define __FLAX_PSX__POST_PROCESSING_LEGACY__
 
 #include "./Flax/Common.hlsl"
 #include "./Flax/GBuffer.hlsl"
 #include "./FlaxPSX/includes/psx.hlsl"
+#include "./FlaxPSX/includes/fog.hlsl"
 
 META_CB_BEGIN(0, Data)
   float2 sceneRenderSize;
   float2 upscaledSize;
-  float2 sceneToUpscaleRatio; 
   float  depthNear;
   float  depthFar;
   float  depthProd;
   float  depthDiff;
   float  depthDiffDiffRecip;
+  float  fogBoost;
   int    useDithering;
   int    useHighColor;
+  float4 fogColor;
+  float  scanlineStrength;
   float  ditherStrength;
   float  ditherBlend;
   int    ditherSize;
   int    usePsxColorPrecision;
+  float2 sceneToUpscaleRatio; 
+  int    fogStyle;
 META_CB_END
 
 Texture2D sceneTexture   : register(t0);
@@ -67,7 +72,7 @@ float2 snapUv(float2 uv, float2 steps)
 }
 
 META_PS(true, FEATURE_LEVEL_ES3)
-frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
+frag_out PS_FlaxPsxPostProcessingLegacy(Quad_VS2PS input)
 {
     // Prepare resources
     frag_out o;
@@ -87,16 +92,26 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     // Coords for dither pattern
     float2 ditherUv = floor(input.TexCoord * float2(sceneRenderSize.x * (float)ditherSize, sceneRenderSize.y * (float)ditherSize));
 
+    // Apply fog to the scene color
+    // 1 -> SH1 style fog
+    if (fogStyle == 1) {
+        float fog = SH1Fog(depth01, fogColor.a, fogBoost);
+        scene = half4(lerp(scene.rgb, fogColor.rgb, fogColor.rgb * fog), fog);
+    }
+
+    // Color post processing (color range + dithering)
+    half4 sceneProcessed;
 
     // Skip the expensive ColorPostProcessing call if both features are disabled
     if ((useDithering == 0) && (usePsxColorPrecision == 0)) {
-        o.color = scene; // Use scene directly
+        sceneProcessed = scene; // Use fogged scene directly
     } else {
-        o.color = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
-        o.color = lerp(scene, o.color, ditherBlend);
+        sceneProcessed = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
+        sceneProcessed = lerp(scene, sceneProcessed,  ditherBlend);
     }   
     
     // Assign final color to output
+    o.color = sceneProcessed * Scanlines(input.TexCoord, sceneRenderSize, upscaledSize, scanlineStrength);
     return o; 
 }
 

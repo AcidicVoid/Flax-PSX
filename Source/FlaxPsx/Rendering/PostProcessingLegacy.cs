@@ -5,11 +5,11 @@ using FlaxEngine;
 namespace AcidicVoid.FlaxPsx.Rendering;
 
 /// <summary>
-/// PostProcessing class.
+/// PostProcessingLegacy class.
 /// </summary>
 [Category(name: "Flax PSX")]
 [ExecuteInEditMode]
-public class PostProcessing : PostProcessEffect
+public class PostProcessingLegacy : PostProcessEffect
 {
     [HideInEditor]
     public event Action OnChange;
@@ -20,19 +20,23 @@ public class PostProcessing : PostProcessEffect
     protected struct ComposerData
     {
         public Float2 sceneRenderSize;
-        public Float2 upscaledSize;  
-        public Float2 sceneToUpscaleRatio;
+        public Float2 upscaledSize;
         public float  depthNear;
         public float  depthFar;
         public float  depthProd;
         public float  depthDiff;
         public float  depthDiffDiffRecip;
+        public float  fogBoost;
         public int    useDithering;
         public int    useHighColor;
+        public Float4 fogColor;
+        public float  scanlineStrength;
         public float  ditherStrength;
         public float  ditherBlend;
         public int    ditherSize;
         public int    usePsxColorPrecision;
+        public Float2 sceneToUpscaleRatio;
+        public int    fogStyle;
     }
     [Header("Rendering", 12)]
     public Int2 RenderSize = new(640, 480);
@@ -43,6 +47,12 @@ public class PostProcessing : PostProcessEffect
     [Tooltip("Use to maintain 4:3 aspect ratio when viewport has a inconsistent aspect ratio like free scalable window")]
     public bool RecalculateViewportSizeOnChange = true;
     public PostProcessingResources Resources;
+
+    [Space(10)]
+    [Header("Fog", 12)]
+    public Color FogColor = Color.Transparent;
+    [Range(0, 1)]  public int   FogStyle = 1;
+    [Range(0, 1)]  public float FogBoost = 0.25f;
     
     [Space(10)]
     [Header("Colors", 12)]
@@ -51,7 +61,11 @@ public class PostProcessing : PostProcessEffect
     [Range(0, 1)]  public float DitherBlend = 1f;
     public bool UsePsxColorPrecision = true;
     public bool UseHighColor = false;
-
+    
+    [Space(10)]
+    [Header("Other", 12)]
+    [Range(0, 1)]  public float ScanlineStrength = 0.0f;
+    
     [HideInEditor] public Viewport TargetViewport => _targetViewport;
 
     private Int2 _renderSize;
@@ -249,7 +263,7 @@ public class PostProcessing : PostProcessEffect
             desc.DepthEnable = true;
             desc.DepthWriteEnable = true;
             desc.StencilEnable = true;
-            desc.PS = Shader.GPU.GetPS("PS_FlaxPsxPostProcessing");
+            desc.PS = Shader.GPU.GetPS("PS_FlaxPsxPostProcessingLegacy");
             _psComposer.Init(ref desc);
         }
         
@@ -275,18 +289,22 @@ public class PostProcessing : PostProcessEffect
             {
                 sceneRenderSize = sceneRenderSize,
                 upscaledSize = Screen.Size,
-                sceneToUpscaleRatio = sceneToUpscaleRatio,
                 depthNear = v.Near,
                 depthFar = far,
                 depthProd = depthProd,
                 depthDiff = depthDiff,
                 depthDiffDiffRecip = depthDiffDiffRecip,
+                fogBoost = FogBoost,
                 useDithering = UseDithering ? 1 : 0,
                 useHighColor = UseHighColor ? 1 : 0,
+                fogColor = new(FogColor.R,FogColor.G,FogColor.B,FogColor.A),
+                scanlineStrength = ScanlineStrength,
                 ditherStrength = DitherStrength,
                 ditherBlend = DitherBlend,
                 ditherSize = 1,
                 usePsxColorPrecision = UsePsxColorPrecision ? 1 : 0,
+                sceneToUpscaleRatio = sceneToUpscaleRatio,
+                fogStyle = FogStyle,
             };
         
             fixed (ComposerData* cbData = &_composerData)

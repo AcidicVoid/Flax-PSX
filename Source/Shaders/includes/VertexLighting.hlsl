@@ -97,7 +97,7 @@ float3 VL_GetDirectionalLighting(GBufferSample gBuffer, float3 worldPos, float3 
     LightData dirLight = GetDirectionalLight();
     
     // Directional light has no attenuation
-    float3 L = -dirLight.Direction;
+    float3 L = dirLight.Direction;
     float NdotL = saturate(dot(worldNormal, L));
     
     // Check shadows

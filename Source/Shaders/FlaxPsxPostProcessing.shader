@@ -81,9 +81,6 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     // Set depth
     o.depth = depth;
 
-    // Dither Strength
-    float ditherStr = ditherStrength * useDithering;
-
     // Coords for dither pattern
     float2 ditherUv = floor(input.TexCoord * float2(sceneRenderSize.x * (float)ditherSize, sceneRenderSize.y * (float)ditherSize));
 
@@ -91,7 +88,7 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     if ((useDithering == 0) && (usePsxColorPrecision == 0)) {
         o.color = scene; // Use scene directly
     } else {
-        o.color = ColorPostProcessing(scene, ditherUv, ditherStr, usePsxColorPrecision, useHighColor);
+        o.color = ColorPostProcessing(scene, ditherUv, ditherStrength, usePsxColorPrecision, useHighColor);
         o.color = lerp(scene, o.color, ditherBlend);
     }   
     

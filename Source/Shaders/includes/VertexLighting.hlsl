@@ -1,8 +1,8 @@
 #if __JETBRAINS_IDE__
-#include "./../../../../../FlaxEngine/Source/Shaders/GBuffer.hlsl"
-#include "./../../../../../FlaxEngine/Source/Shaders/Lighting.hlsl"
-#include "./../../../../../FlaxEngine/Source/Shaders/LightingCommon.hlsl"
-#include "./../../../../../FlaxEngine/Source/Shaders/MaterialCommon.hlsl"
+#include "./../../../../../../../FlaxEngine/Source/Shaders/GBuffer.hlsl"
+#include "./../../../../../../../FlaxEngine/Source/Shaders/Lighting.hlsl"
+#include "./../../../../../../../FlaxEngine/Source/Shaders/LightingCommon.hlsl"
+#include "./../../../../../../../FlaxEngine/Source/Shaders/MaterialCommon.hlsl"
 #endif
 
 #ifndef __INC_VL__
@@ -27,9 +27,8 @@ float CalculateLightAttenuation(LightData light, float3 worldPos)
     if (dist > light.Radius)
         return 0.0;
     
-    float attenuation = 1.0;
-    
     // Distance attenuation
+    float attenuation;
     if (light.InverseSquared > 0.0)
     {
         // Inverse square falloff with smooth radius cutoff
@@ -65,61 +64,30 @@ float3 CalculateDiffuseLighting(float3 lightColor, float3 L, float3 N, float att
     return lightColor * NdotL * attenuation;
 }
 
-// Get shadow value (0 = shadowed, 1 = lit)
-float GetShadowFactor(GBufferSample gBuffer, LightData light, float3 worldPos, float3 viewPos)
-{
-    /*
-    LightData dirLight = GetDirectionalLight();
-    
-    // Calculate lighting from a single directional light
-    ShadowSample shadow = SampleDirectionalLightShadow(dirLight, ShadowsBuffer, ShadowMap, gBuffer);
-    
-    float4 shadowMask = GetShadowMask(shadow);
-    float4 lighting = GetLighting(viewPos, dirLight, gBuffer, shadowMask, false, false);
-    
-    return lighting.x;
-    */
-    
-    // Check if light has shadows enabled
-    if (light.ShadowsBufferAddress == 0)
-        return 1.0;
-    
-    // Call your engine's shadow sampling function here
-    // This is a placeholder - replace with actual Flax Engine shadow function
-    // Example: return SampleShadowMap(light.ShadowsBufferAddress, worldPos);
-    return 1.0; // For now, assume fully lit
-    
-}
-
 // Directional Light (Sun)
-float3 VL_GetDirectionalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPos, float3 worldNormal)
+float3 VL_GetDirectionalLighting(LightData dirLight, float3 worldNormal)
 {
-    LightData dirLight = GetDirectionalLight();
-    
     // Directional light has no attenuation
     float3 L = dirLight.Direction;
     float NdotL = saturate(dot(worldNormal, L));
     
-    // Check shadows
-    float shadowFactor = GetShadowFactor(gBuffer, dirLight, worldPos, viewPos);
-    
-    return dirLight.Color * NdotL * shadowFactor;
+    return dirLight.Color * NdotL;
 }
 
-// Sky Light (Ambient/Hemisphere)
-float3 VL_GetSkyLighting(float3 worldPos, float3 worldNormal)
+// Skylight (Ambient/Hemisphere)
+float3 VL_GetSkyLighting(float3 worldNormal)
 {
     LightData skyLight = GetSkyLight();
     
     // Simple hemisphere lighting
-    // Sky lights typically provide ambient illumination
+    // Skylights typically provide ambient illumination
     float skyFactor = saturate(dot(worldNormal, float3(0, 1, 0)) * 0.5 + 0.5);
     
     return skyLight.Color * skyFactor;
 }
 
 // Local Lights (Point and Spot)
-float3 VL_GetLocalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPos, float3 worldNormal)
+float3 VL_GetLocalLighting(float3 worldPos, float3 worldNormal)
 {
     float3 totalLighting = float3(0, 0, 0);
     
@@ -139,7 +107,7 @@ float3 VL_GetLocalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPo
         if (attenuation <= 0.0)
             continue;
         
-        // Check if it's a spot light (SpotAngles.x != SpotAngles.y means spot light)
+        // Check if it's a spotlight (SpotAngles.x != SpotAngles.y means spot light)
         if (abs(localLight.SpotAngles.x - localLight.SpotAngles.y) > 0.001)
         {
             float spotAtten = CalculateSpotAttenuation(localLight, worldPos);
@@ -151,11 +119,7 @@ float3 VL_GetLocalLighting(GBufferSample gBuffer, float3 worldPos, float3 viewPo
         
         // Calculate diffuse lighting
         float3 lighting = CalculateDiffuseLighting(localLight.Color, L, worldNormal, attenuation);
-        
-        // Apply shadows
-        float shadowFactor = GetShadowFactor(gBuffer, localLight, worldPos, viewPos);
-        lighting *= shadowFactor;
-        
+
         totalLighting += lighting;
     }
     
@@ -179,15 +143,16 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, ou
     float3 lighting = float3(0, 0, 0);
     
     // Directional light
-    directionalLighting = VL_GetDirectionalLighting(gBuffer, worldPos, viewPos, worldNormal);
+    LightData dirLight = GetDirectionalLight();
+    directionalLighting = VL_GetDirectionalLighting(dirLight, worldNormal);
     lighting += directionalLighting;
     
     // Sky-light
-    skyLighting = VL_GetSkyLighting(worldPos, worldNormal);
+    skyLighting = VL_GetSkyLighting(worldNormal);
     lighting += skyLighting;
     
     // Local lights
-    localLighting = VL_GetLocalLighting(gBuffer, worldPos, viewPos, worldNormal);
+    localLighting = VL_GetLocalLighting(worldPos, worldNormal);
     lighting += localLighting;
     
     return lighting;

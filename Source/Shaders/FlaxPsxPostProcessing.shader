@@ -87,7 +87,6 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     // Coords for dither pattern
     float2 ditherUv = floor(input.TexCoord * float2(sceneRenderSize.x * (float)ditherSize, sceneRenderSize.y * (float)ditherSize));
 
-
     // Skip the expensive ColorPostProcessing call if both features are disabled
     if ((useDithering == 0) && (usePsxColorPrecision == 0)) {
         o.color = scene; // Use scene directly

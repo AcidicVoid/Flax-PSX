@@ -63,11 +63,26 @@ You also can use some other aspect ratio, just change *RenderSize* parameter
 
 ## Support
 
-You'll find more on my projects [on Bluesky](https://bsky.app/hashtag/AcidicDev?author=acidicvoid.com)
+#### Patreon
+[Support me via Patreon](https://www.patreon.com/cw/AcidicVoid/membership)
 
-If you like this project, please consider supporting me: **[DONATE](https://dono.acidicvoid.com/)**
+#### Crypto
+<table>
+  <tr>
+    <td>BTC (BIP84)</td>
+    <td>bc1qu29uqhp2rg7845n4wy6fhax0fgp4eajadxp45z</td>
+  </tr>
+  <tr>
+    <td>ETH</td>
+    <td>0xCAE2f86E4658b3FC0E753A2143E5dCC09Edff694</td>
+  </tr>
+  <tr>
+    <td>BONK</td>
+    <td>25ePWvR1e8LxeJpz2E2LDB3gUjtCC1dtEg5umSWjAtTV</td>
+  </tr>
+</table>
 
-### Sources
+## Sources
 
 * PSX-Style dithering is designed according to Psy-Q documentation, page 424:  
 https://psx.arthus.net/sdk/Psy-Q/DOCS/LIBREF46.PDF

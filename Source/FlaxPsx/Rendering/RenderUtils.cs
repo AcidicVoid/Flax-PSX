@@ -11,8 +11,8 @@ public class RenderUtils
     /// <param name="renderSize">Internal render size: Intended to be a low resolution like 320x240 or 640x480, but also can be higher</param>
     /// <param name="targetSize">Actual target resolution: This is the size of the game's viewport, or screen size when in fullscreen mode</param>
     /// <param name="integerScaling">Use integer scaling. Delivers pixel-perfect rendering but can result in letter/pillar-boxing.</param>
-    /// <returns>Calculated Viewport for final post processing</returns>
-    public static Viewport CalculateDisplayViewport(Int2 renderSize, Int2 targetSize, bool integerScaling)
+    /// <returns>Calculated Viewport for final post-processing</returns>
+    public static Viewport CalculateTargetViewport(Int2 renderSize, Int2 targetSize, bool integerScaling)
     {
         float aspectTarget = (float)renderSize.X / renderSize.Y;
         float aspectScreen = (float)targetSize.X / targetSize.Y;

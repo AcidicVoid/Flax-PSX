@@ -7,11 +7,10 @@ Because the scene is actually rendered at a low resolution — rather than rende
 ## Feature Status
 - [x] PSX-Style post processing
   - [x] dithering
-- [x] additional post processing (optional)
-  - [x] basic implementation of CRT-like features
   - [x] integer scaling
 - [x] custom fx-chain by post processing materials
   - [x] depth-based fog
+  - [ ] CRT effects (this is postponed but PRs are welcome)
 - [x] PSX-Style materials
   - [x] 5bpc color precision (high-color available)
   - [x] vertex lighting
@@ -19,14 +18,23 @@ Because the scene is actually rendered at a low resolution — rather than rende
   - [x] PSX-style water caustics (Tomb Raider style)
     - [x] material with caustics limited to local lights
   - [ ] lighting effects for fire (torches, etc.)
+  - [ ] lighting flicker variants adapted from Q1
 
-### Notes:  
+
+## Notes:  
 * You can also just use the materials, without all post-processing  
 * Using the additional post processing **only** should work but is not tested - I will probably test it properly in the future and make adjustments if necessary  
 * This plugin has currently been tested with Windows 11 **only**.
 
-### Breaking changes:
-* The current version (2026.02) has new post-processing where fog and scanlines were removed. These will be replaced by post processing materials - this will offer more flexibility and a custom FX chain. A LEGACY VERSION IS INCLUDED BUT IS NO LONGER MAINTAINED!
+---
+## Breaking changes:
+* **2026-04-08**
+  * The code is now much more robust and maintainable
+  * Extra script for psot-processing resource managed has been removed
+  * Features like additional post processing and CRT features directly in the main post-processing shaders have been removed
+* ~~**2026.02.xx** new post-processing where fog and scanlines were removed. These will be replaced by post processing materials - this will offer more flexibility and a custom FX chain. A LEGACY VERSION IS INCLUDED BUT IS NO LONGER MAINTAINED!~~
+
+---
 ## Installation
 1. go to Tools → Plugins to open the Plugins window
 2. click **Clone Project**
@@ -40,11 +48,6 @@ Because the scene is actually rendered at a low resolution — rather than rende
     * add reference to the *PostProcessingResources* to the Resources slot
     * add the *FlaxPsxPostProcessing* shader to the Shader slot
     * play around with the settings
-7. **OPTIONAL** add a **Flax PSX/AdditionalPostProcessing** script to your actor (doesn't need to be same actor as from step 5 or step 6)
-    * add reference to the *PostProcessingResources* to the Resources slot
-    * add the *FlaxPsxAdditionalPostProcessing* shader to the Shader 
-    * if you want to use a slot-mask, add one to the texture slot - CC0 slotmask images from [MAME](https://github.com/mamedev/mame) included
-    * play around with the settings
 
 It now should look something like this:  
 
@@ -57,53 +60,6 @@ If you're testing the plugin with the standard basic scene, you now should see s
 You also can use some other aspect ratio, just change *RenderSize* parameter
 
 ![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_16.png)
-
-## Post Processing Options
-
-| Parameter Name                     | Type                    | Description                                                                                                  |  
-|------------------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------|  
-| Render Size                        | Int2                    | size of internal GPU texture                                                                                 |
-| Integer Scaling                    | bool                    | enables pixel-perfect scaling, can cause pillar/letter-boxing                                                |
-| Use Custom Viewport                | bool                    | calculates a custom viewport - use if your desired aspect ratio differs from actual game window aspect ratio |
-| Recalculate Viewport Size On Change | bool                   | detects changes and re-calculates the viewport if needed                                                     |
-| Resources                          | PostProcessingResources | actor with PostProcessingResources script attached - stores and handles GPU textures                         |
-| Fog Style                          | int                     | `0`: no fog `1`: SH1 style fog                                                                               |
-| Fog Color                          | Color                   | sets fog color - use alpha to adjsut fog density                                                             |
-| Fog Boost                          | float                   | makes fog appear nearer or more dense, depending on fog style                                                |
-| Use dithering                      | bool                    | enable PSX style dithering effect                                                                            |
-| Dither strength                    | float                   | amount of PSX style dithering effect                                                                         |
-| Dither blend                       | float                   | blends dithered scene with original                                                                          |
-| Use PSX Color Precision            | bool                    | truncate to 5bpc precision via bitwise AND operator - subtile effect for more authentic PSX colors           |
-| Use High Color                     | bool                    | switches GPU texture format to 16-bit colors (otherwise uses 8-bit colors) - currently breaks dithering      |
-| Scanline Strength                  | float                   | strength of currently very basic scanline effect - works best with integer scaling, will be replaced at some point |
-
-## Additional Post Processing Options
-
-| Parameter Name                     | Type                    | Description                                                                                                  |  
-|------------------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------|  
-| SlotMask                           | Texture                 | Slotmask overlay, can also be used for custom scanlines |
-| CrtOverlay                         | Texture                 | CRT overlay, intended to display a CRT frame, will be ignored if no texture is provided |
-| SlotMaskScale                      | int                     | scaling of the slotmask, for adjustment |
-| SlotMaskScaleMultiplierOverride    | float                   | further slotmask scaling adjustment |
-| SlotmaskBlendMode                  | int                     | blend-mode for slotmask overlay: `0`: Off, `1`: Multiply, `2`: Overlay, `3`: Screen |
-| SlotMaskStrength                   | float                   | slotmask strength |
-| CrtOverlayStretchX                 | float                   | horizontal stretch of CRT overlay, for adjustment |
-| CrtOverlayStretchY                 | float                   | vertical stretch of CRT overlay, for adjustment |
-| CurvatureX                         | float                   | CRT-like curvature on X axis |
-| CurvatureY                         | float                   | CRT-like curvature on Y axis |
-| BlurX                              | float                   | X axis blur |
-| BlurY                              | float                   | Y axis blur |
-| BrightnessBoost                    | float                   | boost brightness |
-
-BrigthnessBoost uses exposure-like calculation:
-```
-if (brightnessBoost > 0.001)
-{
-    const half stops = (half)(2.0 * saturate(brightnessBoost)); // 0..2 stops
-    const half exposure = exp2(stops);                          // 1..4
-    scene.rgb = Tonemap_Exp(scene.rgb * exposure);
-}
-```
 
 ## Support
 

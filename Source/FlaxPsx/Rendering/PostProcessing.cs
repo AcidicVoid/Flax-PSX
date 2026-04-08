@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using FlaxEngine;
+using FlaxPsx.Rendering;
 
 namespace AcidicVoid.FlaxPsx.Rendering;
 
@@ -40,9 +41,9 @@ public class PostProcessing : PostProcessEffect
     public bool IntegerScaling = false;
     [Tooltip("Use to maintain 4:3 aspect ratio when game output has a consistent resolution")]
     public bool UseCustomViewport = true;
-    [Tooltip("Use to maintain 4:3 aspect ratio when viewport has a inconsistent aspect ratio like free scalable window")]
-    public bool RecalculateViewportSizeOnChange = true;
-    public PostProcessingResources Resources;
+
+    public Camera MainCamera;
+    public ActorsSources ActorSources = ActorsSources.ScenesAndCustomActors;
     
     [Space(10)]
     [Header("Colors", 12)]
@@ -53,22 +54,19 @@ public class PostProcessing : PostProcessEffect
     public bool UseHighColor = false;
 
     [HideInEditor] public Viewport TargetViewport => _targetViewport;
-
-    private Int2 _renderSize;
+    
+    // Internals
     private bool _integerScaling;
     private bool _useHighColor;
     private bool _useCustomViewport;
-    private bool _recalculateViewportSizeOnChange;
-    private Viewport _targetViewport;
+    private Int2 _renderSize;
     private Int2 _targetSize;
+    private Viewport _targetViewport;
+    private GPUTexture _gpuTexture;
     private ComposerData _composerData;
-    private GPUPipelineState _psComposer;
-    
-    private GPUTextureDescription _depthBufferDesc = GPUTextureDescription.New2D(640, 480, 
-        PixelFormat.D32_Float, 
-        GPUTextureFlags.DepthStencil | GPUTextureFlags.ShaderResource);
-
-    private GPUTexture _uiDepthBuffer;
+    private static SceneRenderTask _sceneRenderTask;
+    private static GPUPipelineState _psComposer;
+    private readonly PostProcessingHelpers _helpers = new();
 
     private Shader _shader;
     public Shader Shader
@@ -98,29 +96,45 @@ public class PostProcessing : PostProcessEffect
         Content.AssetReloading += OnAssetReloading;
 #endif
         
+        // Cache values
+        _renderSize                      = RenderSize;
+        _targetSize                      = GetOutputSize();
+        _useHighColor                    = UseHighColor;
+        _integerScaling                  = IntegerScaling;
+        _targetViewport                  = RenderUtils.CalculateTargetViewport(_renderSize, _targetSize, _integerScaling); // Calculate Viewport Size
+        _useCustomViewport               = UseCustomViewport;
+
+        // Create GPU texture for post-processing
+        // Primarily used to render with actual low resolution instead using downscale or pixelation effects
+        if (_gpuTexture == null)
+        {
+            var desc = _helpers.CreateGpuTextureDescription(_renderSize, _useHighColor);
+            _gpuTexture = _helpers.CreateGpuTexture(
+                desc,
+                true
+                );
+        }
+
+        // Create Scene Render Task
+        if (_sceneRenderTask == null)
+        {
+            _sceneRenderTask = _helpers.CreateSceneRenderTask(
+                ref _gpuTexture,
+                MainCamera != null ? MainCamera : Camera.MainCamera,
+                Order,
+                ActorSources
+            );
+        }
+        _sceneRenderTask.Enabled = true;
+        
         // Register Event
         ViewportSizeChanged += OnViewportSizeChanged;
-
-        // Recalculating the viewport will have no effect when custom viewport isn't used
-        // so, we deactivate it
-        if (!UseCustomViewport)
-            RecalculateViewportSizeOnChange = false;
-
-        // Calculate Viewport Size
-        _targetSize = GetOutputSize();
-        _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         
         // Plug into main scene rendering
         MainRenderTask.Instance.AddCustomPostFx(this);
 
         // Disable Scene Rendering on Main Task
         MainRenderTask.Instance.ActorsSource = ActorsSources.None;
-
-        if (_uiDepthBuffer == null)
-        {
-            _uiDepthBuffer = new();
-            _uiDepthBuffer.Init(ref _depthBufferDesc);
-        }
     }
 
     private Int2 GetOutputSize()
@@ -139,57 +153,67 @@ public class PostProcessing : PostProcessEffect
         MainRenderTask.Instance.RemoveCustomPostFx(this);
         MainRenderTask.Instance.ActorsSource = ActorsSources.Scenes;
 
+        if (_sceneRenderTask != null)
+        {
+            _sceneRenderTask.Enabled = false;
+            Destroy(_sceneRenderTask);
+            _sceneRenderTask = null;
+        }
+
+        if (_gpuTexture != null)
+        {
+            _gpuTexture.ReleaseGPU();
+            Destroy(_gpuTexture);
+            _gpuTexture = null;
+        }
+
         // Unregister Event
         ViewportSizeChanged -= OnViewportSizeChanged;
     }
 
-    private bool HandleChanges(PostProcessingResources resources)
+    private bool HandleChanges(PostProcessingHelpers helpers)
     {
         bool changesDetected = false;
-
         if (UseHighColor != _useHighColor)
         {
+            changesDetected    = true;
             _useHighColor = UseHighColor;
-            var desc = resources.SceneGpuTexture.Description;
-            desc.Format = _useHighColor ? PostProcessingResources.PixelFormat8 : PostProcessingResources.PixelFormat16;
-            resources.SceneGpuTexture.Init(ref desc);
+            var desc = _gpuTexture.Description;
+            desc.Format = 
+                _useHighColor ? PostProcessingHelpers.PixelFormat8 : PostProcessingHelpers.PixelFormat16;
+            _gpuTexture.Init(ref desc);
         }
-        
-        if (RenderSize != _renderSize)
+        if (IntegerScaling != _integerScaling || RenderSize != _renderSize)
         {
-            _renderSize = RenderSize;
-            changesDetected = true;
+            changesDetected    = true;
+            _integerScaling    = IntegerScaling;
+            UseCustomViewport  = _integerScaling || _useCustomViewport;
+            _renderSize        = RenderSize;
+
             // Trigger Event
             if (OnResolutionChanged != null)
                 OnResolutionChanged.Invoke(_renderSize);
-            _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
         }
-        if (resources.InternalRenderSize != _renderSize)
+        if (_useCustomViewport != UseCustomViewport)
         {
-            resources.ResizeGpuTexture(RenderSize);
             changesDetected = true;
-        }
-        if (IntegerScaling != _integerScaling)
-        {
-            _integerScaling = IntegerScaling;
-            changesDetected = true;
-            if (IntegerScaling)
-                UseCustomViewport = true;
-            _targetViewport = RenderUtils.CalculateDisplayViewport(RenderSize, _targetSize, IntegerScaling);
-        }
-        if (UseCustomViewport != _useCustomViewport)
-        {
             _useCustomViewport = UseCustomViewport;
-            changesDetected = true;
-            if (!UseCustomViewport)
-                RecalculateViewportSizeOnChange = false;
         }
-        if (RecalculateViewportSizeOnChange != _recalculateViewportSizeOnChange)
+        if (_gpuTexture != null)
         {
-            _recalculateViewportSizeOnChange = RecalculateViewportSizeOnChange;
-            changesDetected = true;
-            if (RecalculateViewportSizeOnChange)
-                UseCustomViewport = true;
+            Float2 gpuTextureSize = _gpuTexture.Size;
+            Int2 gpuTextureSizeInt = new Int2(
+                Mathf.CeilToInt(gpuTextureSize.X),
+                Mathf.CeilToInt(gpuTextureSize.Y)
+            );
+            if (gpuTextureSizeInt != _renderSize)
+                changesDetected = true;
+        }
+        // Recalculate Viewport dimensions
+        if (changesDetected)
+        {
+            _helpers.ResizeGpuTexture(ref _gpuTexture, _renderSize);
+            _targetViewport = RenderUtils.CalculateTargetViewport(_renderSize, _targetSize, _integerScaling);
         }
         // Trigger Event
         if (changesDetected && OnChange != null)
@@ -199,7 +223,9 @@ public class PostProcessing : PostProcessEffect
     
     public override bool CanRender()
     {
-        return base.CanRender() && Shader && Shader.IsLoaded;
+        var gpuTextureAvailable = _gpuTexture?.IsAllocated ?? false;
+        var sceneRenderTaskAvailable = _sceneRenderTask?.Enabled ?? false;
+        return base.CanRender() && gpuTextureAvailable && sceneRenderTaskAvailable&& Shader && Shader.IsLoaded;
     }
 
     private void ReleaseShader()
@@ -213,31 +239,20 @@ public class PostProcessing : PostProcessEffect
 #if FLAX_EDITOR
         Profiler.BeginEventGPU("Custom Rendering");
 #endif
-        // make sure the required resources exist, otherwise skip rendering;
-        // rendering without the resources will crash the game
-        PostProcessingResources resources = null;
-        bool resourcesAvailable = Resources?.TryGetResources(out resources) ?? false;
-        if (!resourcesAvailable)
-            return;
         
-        // Extra safety-check for race condition
-        if (resources.SceneRenderTask.Buffers.DepthBuffer.Width == 0) 
+        // Extra safety-check
+        // if (!CanRender() || _sceneRenderTask.Buffers.DepthBuffer.Width == 0) 
+        if (!CanRender()) 
             return;
         
         // If any of the main rendering options have changed, restart the script
-        HandleChanges(resources);
+        HandleChanges(_helpers);
         
         // Recalculate the viewport if needed
-        if (RecalculateViewportSizeOnChange && (_targetSize != GetOutputSize()))
+        if (_targetSize != GetOutputSize())
         {
             _targetSize = GetOutputSize();
             ViewportSizeChanged.Invoke(_targetSize.X, _targetSize.Y);
-        }
-
-        // Skip Rendering when custom viewport is too small
-        if (UseCustomViewport && ((_targetSize.X < 320) || (_targetSize.Y < 240)))
-        {
-            return;
         }
 
         // Starting here, we perform custom rendering on top of the in-build drawing
@@ -254,7 +269,7 @@ public class PostProcessing : PostProcessEffect
         }
         
         // Pre-calculations for efficiency
-        var v = resources.SceneRenderTask!.View;
+        var v = _sceneRenderTask!.View;
         float far = v.Far;
         float depthProd = v.Near * far;
         float depthDiff = far - v.Near;
@@ -264,7 +279,7 @@ public class PostProcessing : PostProcessEffect
         float depthDiffDiffRecip = 1.0f / depthDiff;
         
         // Pre-calculated ratio for Scanlines optimization (sceneRenderSize / upscaledSize)
-        Float2 sceneRenderSize = resources.SceneRenderTask!.Output.Size;
+        Float2 sceneRenderSize = _sceneRenderTask.Output.Size;
         Float2 sceneToUpscaleRatio = sceneRenderSize / Screen.Size;
 
         // Set constant buffer data (memory copy is used under the hood to copy raw data from CPU to GPU memory)
@@ -298,13 +313,12 @@ public class PostProcessing : PostProcessEffect
         context.ClearDepth(MainRenderTask.Instance.Buffers.DepthBuffer.View());
 
         // Draw objects to depth buffer
-        Renderer.DrawSceneDepth(context, resources.SceneRenderTask, MainRenderTask.Instance.Buffers.DepthBuffer, (Actor[])[]);
+        Renderer.DrawSceneDepth(context, _sceneRenderTask, MainRenderTask.Instance.Buffers.DepthBuffer, (Actor[])[]);
 
         // Draw fullscreen triangle using custom Pixel Shader
         context.BindCB(0, cb0);
-        context.BindSR(0, resources.SceneRenderTask.Output);
-        context.BindSR(2, resources.SceneRenderTask.Buffers.DepthBuffer.View());
-        context.BindSR(3, _uiDepthBuffer.View());
+        context.BindSR(0, _sceneRenderTask.Output);
+        context.BindSR(1, _sceneRenderTask.Buffers.DepthBuffer.View());
 
         context.SetState(_psComposer);
         // If custom viewport is used, we set it here
@@ -314,7 +328,6 @@ public class PostProcessing : PostProcessEffect
 
         // Source texture holds the final viewport's dimensions, NOT the low res
         // This also applies if UseCustomViewport is set to true
-        //context.SetRenderTarget(sourceTexture.View());
         context.SetRenderTarget(output.View());
         context.DrawFullscreenTriangle();
 #if FLAX_EDITOR
@@ -324,7 +337,7 @@ public class PostProcessing : PostProcessEffect
     
     private void OnViewportSizeChanged(float w, float h)
     {
-        _targetViewport = RenderUtils.CalculateDisplayViewport(_renderSize, _targetSize, IntegerScaling);
+        _targetViewport = RenderUtils.CalculateTargetViewport(_renderSize, _targetSize, IntegerScaling);
     }
 
 #if FLAX_EDITOR

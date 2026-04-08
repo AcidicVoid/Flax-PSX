@@ -25,8 +25,7 @@ META_CB_BEGIN(0, Data)
 META_CB_END
 
 Texture2D sceneTexture   : register(t0);
-Texture2D uiTexture      : register(t1);
-Texture2D DepthBuffer    : register(t2);
+Texture2D DepthBuffer    : register(t1);
 float4 c0 = float4(1,1,1,1);
 float  c1 = 1.70158;
 float  c2 = 2.70158;
@@ -48,7 +47,7 @@ float NormalizeZ(float z_buffer, float z_near, float z_far)
     return (linear_depth_actual - depthNear) * depthDiffDiffRecip; 
 }
 
-// Optimized Scanlines function using the pre-calculated sceneToUpscaleRatio uniform.
+// Optimized Scanline function using the pre-calculated sceneToUpscaleRatio uniform.
 float Scanlines(float2 uv, float2 sceneRenderSize, float2 upscaledSize, float strength) {
     // Scale UV to upscaled pixel space
     float2 pixelCoord = uv * upscaledSize;
@@ -71,7 +70,6 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
 {
     // Prepare resources
     frag_out o;
-    // half4 ui = uiTexture.Sample(SamplerPointClamp, input.TexCoord);
     half4 scene = sceneTexture.Sample(SamplerPointClamp, input.TexCoord); 
 
     // Get and linearize depth buffer

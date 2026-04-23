@@ -73,20 +73,17 @@ frag_out PS_FlaxPsxPostProcessing(Quad_VS2PS input)
     half4 scene = sceneTexture.Sample(SamplerPointClamp, input.TexCoord); 
 
     // Get and linearize depth buffer
-    float depth = SAMPLE_RT(DepthBuffer, input.TexCoord);
+    float depth   = SAMPLE_RT(DepthBuffer, input.TexCoord);
     float depth01 = NormalizeZ(depth, depthNear, depthFar);
 
     // Set depth
     o.depth = depth;
 
-    // Coords for dither pattern
-    float2 ditherUv = floor(input.TexCoord * float2(sceneRenderSize.x * (float)ditherSize, sceneRenderSize.y * (float)ditherSize));
-
     // Skip the expensive ColorPostProcessing call if both features are disabled
     if ((useDithering == 0) && (usePsxColorPrecision == 0)) {
         o.color = scene; // Use scene directly
     } else {
-        o.color = ColorPostProcessing(scene, ditherUv, ditherStrength, usePsxColorPrecision, useHighColor);
+        o.color = ColorPostProcessing(scene, input.TexCoord, sceneRenderSize, useDithering != 0 ? ditherStrength : 0, usePsxColorPrecision, useHighColor);
         o.color = lerp(scene, o.color, ditherBlend);
     }   
     

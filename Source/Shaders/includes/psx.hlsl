@@ -12,33 +12,45 @@ static const uint LOW_COLOR_CNT = 255;
 static const uint HIGH_COLOR_CNT = 32768;
 
 // Adds PSX style dithering only
-half4 Dither(half4 col, float2 uv, float ditherStr)
+half4 Dither(half4 col, int2 screenPos, float ditherStr)
 {
-    int dither_u = psx_dither_table[int(uv.x % 4)][int(uv.y % 4)];
-    // Apply dithering according to PSY-Q Docs
-    col += (dither_u / 2.0 - 4.0) * ditherStr;
-    return col;
+    // Matrix indexing: table[row][column]
+    // Use modulo 4 on integer coordinates
+    float dither_val = psx_dither_table[screenPos.y % 4][screenPos.x % 4];
+    
+    // Convert 0..15 range to -4.0..3.5 range
+    float offset = (dither_val / 2.0 - 4.0) * ditherStr;
+    
+    // Apply offset (assuming col is in 0..255 range)
+    return col + offset;
 }
 
 // Truncates colors to PSX-like 5bpc precision
 // Adds PSX style dithering
-half4 ColorPostProcessing(half4 col, float2 uv, float ditherStr, bool psxPrec, bool highColor)
+half4 ColorPostProcessing(half4 col, float2 uv, float renderSize, float ditherStr, bool psxPrec, bool highColor)
 {
-    col *= highColor ? 1 : 255;
+    // Convert normalized UV to integer Pixel Coordinates
+    int2 screenPos = int2(uv * renderSize);
+    
+    col *= 255.0;
     // Apply dithering according to PSY-Q Docs
-    col = ditherStr <= 0 ? col : Dither(col, uv, ditherStr);
-    // Truncate to 5bpc precision via bitwise AND operator, and limit value max to prevent wrapping
-    // HEX 0xf8 -> DEC 248
+    if (ditherStr > 0) 
+    {
+        col = Dither(col, screenPos, ditherStr);
+    }
+    // We clamp to 0-255 first to prevent negative wrap-around glitches
+    col = clamp(col, 0.0, 255.0);
+    
     if (!highColor && psxPrec)
     {
-        col = lerp((half4)(uint4(col) & 0xf8), 0xf8, step(0xf8,col));
+        // Truncate to 5bpc precision via bitwise AND operator, and limit value max to prevent wrapping
+        // HEX 0xf8 -> DEC 248
+        // lerp/step prevents values from exceeding 248 to mimic PSX hardware limits
+        col = lerp((half4)(uint4(col) & 0xf8), 248.0, step(248.0, col));
     }
-    else if (!highColor && !psxPrec)
-    {
-        // This branch (psxPrec == false) results in no color truncation, only dithering.
-        col = lerp((half4)(uint4(col) & LOW_COLOR_CNT), LOW_COLOR_CNT, step(LOW_COLOR_CNT,col));
-    }
-    return col / (highColor ? 1 : 255);
+
+    // 5. Return to 0..1 range
+    return col / 255.0;
 }
 
 float3 ConvertToPsxColorRange(float3 color)

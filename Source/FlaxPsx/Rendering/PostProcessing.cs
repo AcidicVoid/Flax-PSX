@@ -14,8 +14,15 @@ public class PostProcessing : PostProcessEffect
 {
     [HideInEditor]
     public event Action OnChange;
+    
+    /// <summary>
+    /// Gets called when RenderSize gets changed to a new value
+    /// </summary>
     [HideInEditor]
-    public event Action<Int2> OnResolutionChanged;
+    public event Action<Int2> ResolutionChanged;
+    
+    [HideInEditor]
+    public event Action<Viewport> TargetViewportChanged;
     
     [StructLayout(LayoutKind.Sequential)]
     protected struct ComposerData
@@ -52,8 +59,6 @@ public class PostProcessing : PostProcessEffect
     [Range(0, 1)]  public float DitherBlend = 1f;
     public bool UsePsxColorPrecision = true;
     public bool UseHighColor = false;
-
-    [HideInEditor] public Viewport TargetViewport => _targetViewport;
     
     // Internals
     private bool _integerScaling;
@@ -61,13 +66,26 @@ public class PostProcessing : PostProcessEffect
     private bool _useCustomViewport;
     private Int2 _renderSize;
     private Int2 _targetSize;
-    private Viewport _targetViewport;
     private GPUTexture _gpuTexture;
     private ComposerData _composerData;
     private static SceneRenderTask _sceneRenderTask;
     private static GPUPipelineState _psComposer;
     private readonly PostProcessingHelpers _helpers = new();
 
+    // Viewport
+    private Viewport _targetViewport;
+    [HideInEditor]
+    public Viewport TargetViewport
+    {
+        get => _targetViewport;
+        set
+        {
+            _targetViewport = value;
+            TargetViewportChanged?.Invoke(value);
+        }
+    }
+    
+    // Shader slot
     private Shader _shader;
     public Shader Shader
     {
@@ -191,8 +209,8 @@ public class PostProcessing : PostProcessEffect
             _renderSize        = RenderSize;
 
             // Trigger Event
-            if (OnResolutionChanged != null)
-                OnResolutionChanged.Invoke(_renderSize);
+            if (ResolutionChanged != null)
+                ResolutionChanged.Invoke(_renderSize);
         }
         if (_useCustomViewport != UseCustomViewport)
         {

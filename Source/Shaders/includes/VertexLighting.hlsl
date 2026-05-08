@@ -61,7 +61,7 @@ float CalculateSpotAttenuation(LightData light, float3 worldPos)
 float3 CalculateDiffuseLighting(float3 lightColor, float3 L, float3 N, float attenuation)
 {
     float NdotL = saturate(dot(N, L));
-    return lightColor * NdotL * attenuation;
+    return lightColor * lightColor * NdotL * attenuation;
 }
 
 // Directional Light (Sun)

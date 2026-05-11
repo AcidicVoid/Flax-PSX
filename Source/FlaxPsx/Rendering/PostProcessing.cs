@@ -44,6 +44,10 @@ public class PostProcessing : PostProcessEffect
     }
     [Header("Rendering", 12)]
     public Int2 RenderSize = new(640, 480);
+    [Tooltip("Uses monitor's native resolution")]
+    public bool NativeRenderSize = false;
+    [Tooltip("Uses monitor's half native resolution")]
+    public bool HalfNativeRenderSize = false;
     [Tooltip("Use for pixel-perfect scaling, will cause black borders")]
     public bool IntegerScaling = false;
     [Tooltip("Use to maintain 4:3 aspect ratio when game output has a consistent resolution")]
@@ -61,6 +65,8 @@ public class PostProcessing : PostProcessEffect
     public bool UseHighColor = false;
     
     // Internals
+    private bool _nativeRenderSize;
+    private bool _halfNativeRenderSize;
     private bool _integerScaling;
     private bool _useHighColor;
     private bool _useCustomViewport;
@@ -114,8 +120,12 @@ public class PostProcessing : PostProcessEffect
         Content.AssetReloading += OnAssetReloading;
 #endif
         
+        // Determine Render Size
+        
         // Cache values
-        _renderSize                      = RenderSize;
+        _nativeRenderSize                = NativeRenderSize;
+        _halfNativeRenderSize            = HalfNativeRenderSize;
+        _renderSize                      = GetInternalRenderSize();
         _targetSize                      = GetOutputSize();
         _useHighColor                    = UseHighColor;
         _integerScaling                  = IntegerScaling;
@@ -155,6 +165,26 @@ public class PostProcessing : PostProcessEffect
         MainRenderTask.Instance.ActorsSource = ActorsSources.None;
     }
 
+    /// <summary>
+    /// Gets internal render size based on parameters
+    /// </summary>
+    /// <returns></returns>
+    private Int2 GetInternalRenderSize()
+    {
+        Int2 renderSize = RenderSize;
+        _nativeRenderSize = NativeRenderSize;
+        _halfNativeRenderSize = HalfNativeRenderSize;
+        if (_halfNativeRenderSize)
+        {
+            renderSize = new(Mathf.RoundToInt(Screen.Size.X / 2f), Mathf.RoundToInt(Screen.Size.Y / 2f));
+        }
+        else if (_nativeRenderSize)
+        {
+            renderSize = new(Mathf.RoundToInt(Screen.Size.X), Mathf.RoundToInt(Screen.Size.Y));
+        } 
+        return renderSize;
+    }
+
     private Int2 GetOutputSize()
     {
         // Screen.Size is fallback option
@@ -192,6 +222,14 @@ public class PostProcessing : PostProcessEffect
     private bool HandleChanges(PostProcessingHelpers helpers)
     {
         bool changesDetected = false;
+        if (RenderSize != _renderSize || NativeRenderSize != _nativeRenderSize ||
+            HalfNativeRenderSize != _halfNativeRenderSize)
+        {
+            _nativeRenderSize = NativeRenderSize;
+            _halfNativeRenderSize = HalfNativeRenderSize;
+            _renderSize = GetInternalRenderSize();
+        }
+        
         if (UseHighColor != _useHighColor)
         {
             changesDetected    = true;
@@ -206,7 +244,7 @@ public class PostProcessing : PostProcessEffect
             changesDetected    = true;
             _integerScaling    = IntegerScaling;
             UseCustomViewport  = _integerScaling || _useCustomViewport;
-            _renderSize        = RenderSize;
+            _renderSize        = GetInternalRenderSize();
 
             // Trigger Event
             if (ResolutionChanged != null)

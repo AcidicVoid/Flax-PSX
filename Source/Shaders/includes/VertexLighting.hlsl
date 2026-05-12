@@ -127,7 +127,8 @@ float3 VL_GetLocalLighting(float3 worldPos, float3 worldNormal)
 }
 
 // Combined function to get all vertex lighting at once
-float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, out half3 directionalLighting, out half3 skyLighting, out half3 localLighting)
+// DSL Strength = Directional, Sky, Local
+float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, float3 dslStrength)
 {
     GBufferSample gBuffer;
     gBuffer.Normal = worldNormal;
@@ -140,20 +141,17 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, ou
     gBuffer.WorldPos = worldPos;
     gBuffer.ShadingModel = MATERIAL_SHADING_MODEL;
     
-    float3 lighting = float3(0, 0, 0);
+    float3 lighting = float3(0,0,0);
     
     // Directional light
     LightData dirLight = GetDirectionalLight();
-    directionalLighting = VL_GetDirectionalLighting(dirLight, worldNormal);
-    lighting += directionalLighting;
+    lighting += float4(VL_GetDirectionalLighting(dirLight, worldNormal), 0) * dslStrength.x;
     
     // Sky-light
-    skyLighting = VL_GetSkyLighting(worldNormal);
-    lighting += skyLighting;
-    
+    lighting += float4(VL_GetSkyLighting(worldNormal), 0) * dslStrength.y;
+        
     // Local lights
-    localLighting = VL_GetLocalLighting(worldPos, worldNormal);
-    lighting += localLighting;
+    lighting += float4(VL_GetLocalLighting(worldPos, worldNormal), 0) * dslStrength.z;
     
     return lighting;
 }

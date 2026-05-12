@@ -60,21 +60,25 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, 
     float4 WorldPosition, float4 NormalVector, float4 CameraPosition, float4 AdditionalData)
 {
+    // Cache color
+    float4 c = Color;
+    
     // Vertex Lighting
     float3 vertexColor = VertexColor.rgb;
     float  ambientLightStrength = VertexColor.w;
+    float  lightingClampMax = AdditionalData.x;
     float3 dsls = float3(WorldPosition.w, NormalVector.w, CameraPosition.w); 
-    Color.xyz *= clamp(VL_GetAllLighting(WorldPosition.xyz, CameraPosition.xyz, NormalVector.xyz, dsls), 0, AdditionalData.x);
+    c.xyz *= clamp(VL_GetAllLighting(WorldPosition.xyz, CameraPosition.xyz, NormalVector.xyz, dsls), 0, lightingClampMax);
     
     // Vertex Color
     int useAdditiveVertexColors = VertexColorInfo.z;
     int vertexColorStrength = VertexColorInfo.w;
     if (useAdditiveVertexColors > 0.5)
-        Color += float4(lerp(float3(0,0,0), vertexColor, vertexColorStrength), 0);
+        c += float4(lerp(float3(0,0,0), vertexColor, vertexColorStrength), 0);
     else
-        Color *= float4(lerp(float3(1,1,1), vertexColor, vertexColorStrength), 1);
+        c *= float4(lerp(float3(1,1,1), vertexColor, vertexColorStrength), 1);
     
-    return Color;
+    return lerp(c, c + Color, ambientLightStrength);
 }
 
 #endif

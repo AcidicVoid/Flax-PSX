@@ -136,7 +136,7 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, fl
     gBuffer.Metalness = 0;
     gBuffer.Specular = 0;
     gBuffer.Color = float3(1, 1, 1);
-    gBuffer.AO = float3(1, 1, 1);
+    gBuffer.AO = 1.0; //float3(1, 1, 1);
     gBuffer.ViewPos = viewPos;
     gBuffer.WorldPos = worldPos;
     gBuffer.ShadingModel = MATERIAL_SHADING_MODEL;
@@ -145,13 +145,13 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, fl
     
     // Directional light
     LightData dirLight = GetDirectionalLight();
-    lighting += float4(VL_GetDirectionalLighting(dirLight, worldNormal), 0) * dslStrength.x;
+    lighting += (float4(VL_GetDirectionalLighting(dirLight, worldNormal), 0) * dslStrength.x).xyz;
     
     // Sky-light
-    lighting += float4(VL_GetSkyLighting(worldNormal), 0) * dslStrength.y;
+    lighting += (float4(VL_GetSkyLighting(worldNormal), 0) * dslStrength.y).xyz;
         
     // Local lights
-    lighting += float4(VL_GetLocalLighting(worldPos, worldNormal), 0) * dslStrength.z;
+    lighting += (float4(VL_GetLocalLighting(worldPos, worldNormal), 0) * dslStrength.z).xyz;
     
     return lighting;
 }

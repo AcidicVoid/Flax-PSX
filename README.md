@@ -4,7 +4,8 @@
 This plugin uses a custom post-processing effect that fully bypasses the engine’s internal scene rendering. Instead, it renders the scene directly into a GPU texture at the exact resolution you specify.
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
-## Development Status
+## Installation
+[![ Flax Engine | How to install Flax-PSX plugin ](https://youtu.be/XZRdeI5lOZU)](https://youtu.be/XZRdeI5lOZU)
 
 ## Feature Status
 - [x] PSX-Style post processing
@@ -17,8 +18,8 @@ Because the scene is actually rendered at a low resolution — rather than rende
   - [x] 5bpc color precision (high-color available)
   - [x] vertex lighting
   - [x] screenspace vertex snapping (the mind-boggle wobble)
-  - [ ] PSX-style water caustics (Tomb Raider style)*
-    - [ ] material with caustics limited to local lights*
+  - [ ] PSX-style water caustics (Tomb Raider style)
+    - [ ] material with caustics limited to local lights
   - [ ] lighting effects for fire (torches, etc.)
   - [ ] lighting flicker variants adapted from Q1
 
@@ -54,18 +55,6 @@ Because the scene is actually rendered at a low resolution — rather than rende
     * add reference to the *PostProcessingResources* to the Resources slot
     * add the *FlaxPsxPostProcessing* shader to the Shader slot
     * play around with the settings
-
-It now should look something like this:  
-
-![Scripts of actor](.github/media/scripts_of_actor.png)
-
-If you're testing the plugin with the standard basic scene, you now should see something like this:
-
-![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_43.png)
-
-You also can use some other aspect ratio, just change *RenderSize* parameter
-
-![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_16.png)
 
 ## Support
 

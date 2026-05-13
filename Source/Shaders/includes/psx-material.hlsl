@@ -48,17 +48,11 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 // * z: Use Additive Vertex Color (int) 
 // * w: Vertex Color Strength (float)
 //
-// Input 3, 4, 5 - WorldPosition, NormalVector, CameraPosition
-// These contain additional data:
-// * WorldPosition.w:  Directional Light Strength
-// * NormalVector.w:   Sky Light Strength
-// * CameraPosition.w: Local Light Strength
-//
-// Input 6 - Additional Data
-// * x: Lighting Clamp Limit
+// Input 3 - Vertex Lighting
+// * xyz:  Vertex Lighting RGB Colors
+// * w:    Vertex Lighting Clamp Max
 
-float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, 
-    float4 WorldPosition, float4 NormalVector, float4 CameraPosition, float4 AdditionalData)
+float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float4 VertexLighting)
 {
     // Cache color
     float4 c = Color;
@@ -66,9 +60,8 @@ float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorIn
     // Vertex Lighting
     float3 vertexColor = VertexColor.rgb;
     float  ambientLightStrength = VertexColor.w;
-    float  lightingClampMax = AdditionalData.x;
-    float3 dsls = float3(WorldPosition.w, NormalVector.w, CameraPosition.w); 
-    c.xyz *= clamp(VL_GetAllLighting(WorldPosition.xyz, CameraPosition.xyz, NormalVector.xyz, dsls), 0, lightingClampMax);
+
+    c.xyz *= clamp(VertexLighting.xyz, 0, VertexLighting.w);
     
     // Vertex Color
     int useAdditiveVertexColors = VertexColorInfo.z;

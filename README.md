@@ -5,7 +5,7 @@ This plugin uses a custom post-processing effect that fully bypasses the engine�
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
 ## Installation
-[![ Flax Engine | How to install Flax-PSX plugin ](https://youtu.be/XZRdeI5lOZU)](https://youtu.be/XZRdeI5lOZU)
+[![How to install Flax-PSX plugin](https://i.ytimg.com/vi/XZRdeI5lOZU/maxresdefault.jpg)](https://www.youtube.com/watch?v=XZRdeI5lOZU)
 
 ## Feature Status
 - [x] PSX-Style post processing

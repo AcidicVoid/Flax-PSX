@@ -4,6 +4,8 @@
 This plugin uses a custom post-processing effect that fully bypasses the engine’s internal scene rendering. Instead, it renders the scene directly into a GPU texture at the exact resolution you specify.
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
+## Development Status
+
 ## Feature Status
 - [x] PSX-Style post processing
   - [x] dithering
@@ -15,19 +17,23 @@ Because the scene is actually rendered at a low resolution — rather than rende
   - [x] 5bpc color precision (high-color available)
   - [x] vertex lighting
   - [x] screenspace vertex snapping (the mind-boggle wobble)
-  - [x] PSX-style water caustics (Tomb Raider style)
-    - [x] material with caustics limited to local lights
+  - [ ] PSX-style water caustics (Tomb Raider style)*
+    - [ ] material with caustics limited to local lights*
   - [ ] lighting effects for fire (torches, etc.)
   - [ ] lighting flicker variants adapted from Q1
 
-
 ## Notes:  
+* This plugin is *not* stable yet and each update may cause something to break
+* Due to the engine's behavior, materials in existing projects *can* break when updating the plugin
 * You can also just use the materials, without all post-processing  
 * Using the additional post processing **only** should work but is not tested - I will probably test it properly in the future and make adjustments if necessary  
 * This plugin has currently been tested with Windows 11 **only**.
 
 ---
 ## Breaking changes:
+* **2026-05-13**, version 0.3
+  * all materials have been reworked due to an issue with material editor functions
+  * caustics functions have been removed but will be re-implemented soon
 * **2026-04-08**
   * The code is now much more robust and maintainable
   * Extra script for psot-processing resource managed has been removed

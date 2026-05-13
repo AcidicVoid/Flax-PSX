@@ -1,7 +1,7 @@
 {
 	"Name": "FlaxPSX",
-	"Version": "0.2",
-	"Company": "CENTRAL\\VORTEX",
+	"Version": "0.3",
+	"Company": "CENTRAL VORTEX",
 	"Copyright": "AcidicVoid",
 	"GameTarget": "FlaxPsxTarget",
 	"EditorTarget": "FlaxPsxEditorTarget",

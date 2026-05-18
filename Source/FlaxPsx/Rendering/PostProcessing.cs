@@ -77,6 +77,9 @@ public class PostProcessing : PostProcessEffect
     private static SceneRenderTask _sceneRenderTask;
     private static GPUPipelineState _psComposer;
     private readonly PostProcessingHelpers _helpers = new();
+    
+    // Getters for internals
+    public SceneRenderTask SceneRenderTask => _sceneRenderTask;
 
     // Viewport
     private Viewport _targetViewport;

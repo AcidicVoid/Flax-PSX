@@ -7,6 +7,10 @@
 *.HotReload.*
 Source/*.Gen.*
 
+# Prohect
+.assets/models/
+.assets/textures/
+
 # Local files
 imgui.ini
 

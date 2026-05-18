@@ -54,6 +54,9 @@ Because the scene is actually rendered at a low resolution — rather than rende
 ## Physics
 When working with particle systems using SDF collision (e.g. snow or rain effects), it is required to add a *PsxParticleSystem* to the *ParticleEffect* Actor and reference the *PsxPostProcessing* script.
 
+## Installation Video
+[![How to install Flax-PSX plugin](https://i.ytimg.com/vi/XZRdeI5lOZU/maxresdefault.jpg)](https://www.youtube.com/watch?v=XZRdeI5lOZU)
+
 ## Support
 
 #### Patreon

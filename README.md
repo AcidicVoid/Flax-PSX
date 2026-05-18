@@ -4,6 +4,8 @@
 This plugin uses a custom post-processing effect that fully bypasses the engine’s internal scene rendering. Instead, it renders the scene directly into a GPU texture at the exact resolution you specify.
 Because the scene is actually rendered at a low resolution — rather than rendered at full size and later pixelated — performance improves significantly. This approach is ideal for projects that rely on extremely low resolutions, delivering both visual accuracy and efficiency.
 
+![preview-gif](.media/7f67e65fded7025f.gif)
+
 ## Feature Status
 - [x] PSX-Style post processing
   - [x] dithering
@@ -49,17 +51,8 @@ Because the scene is actually rendered at a low resolution — rather than rende
     * add the *FlaxPsxPostProcessing* shader to the Shader slot
     * play around with the settings
 
-It now should look something like this:  
-
-![Scripts of actor](.github/media/scripts_of_actor.png)
-
-If you're testing the plugin with the standard basic scene, you now should see something like this:
-
-![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_43.png)
-
-You also can use some other aspect ratio, just change *RenderSize* parameter
-
-![Basic Scene Screenshot, 4:3 aspect](.github/media/standard_scene_screenshot_16.png)
+## Physics
+When working with particle systems using SDF collision (e.g. snow or rain effects), it is required to add a *PsxParticleSystem* to the *ParticleEffect* Actor and reference the *PsxPostProcessing* script.
 
 ## Support
 

@@ -1,4 +1,5 @@
 using System;
+using FlaxEditor.GUI.ContextMenu;
 using FlaxEngine;
 
 namespace AcidicVoid.FlaxPsx
@@ -9,6 +10,9 @@ namespace AcidicVoid.FlaxPsx
     /// <seealso cref="FlaxEngine.GamePlugin" />
     public class FlaxPsx : GamePlugin
     {
+        private ContextMenuButton _toolsButton;
+        private static PluginDescription __description;
+        
         /// <inheritdoc />
         public FlaxPsx()
         {
@@ -25,18 +29,28 @@ namespace AcidicVoid.FlaxPsx
                 IsAlpha = true,
                 IsBeta = false,
             };
+            // Set static description
+            __description = _description;
+        }
+
+        public static PluginDescription GetDescription()
+        {
+            return __description;
         }
 
         /// <inheritdoc />
         public override void Initialize()
         {
             base.Initialize();
-            Debug.Log("Initializing Flax PSX plugin");
+            Debug.Log("Initializing Flax PSX plugin ...");
         }
 
         /// <inheritdoc />
         public override void Deinitialize()
         {
+            _toolsButton?.Dispose();
+            _toolsButton = null;
+            
             Debug.Log("Plugin cleanup!");
             base.Deinitialize();
         }

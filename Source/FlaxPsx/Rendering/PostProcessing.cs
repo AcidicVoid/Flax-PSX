@@ -55,7 +55,9 @@ public class PostProcessing : PostProcessEffect
 
     public Camera MainCamera;
     public ActorsSources ActorSources = ActorsSources.ScenesAndCustomActors;
-    
+
+    public LayersMask UILayer;
+
     [Space(10)]
     [Header("Colors", 12)]
     public bool UseDithering = false;
@@ -74,6 +76,7 @@ public class PostProcessing : PostProcessEffect
     private Int2 _targetSize;
     private GPUTexture _gpuTexture;
     private ComposerData _composerData;
+    private LayersMask _mainRenderTaskLayer;
     private static SceneRenderTask _sceneRenderTask;
     private static GPUPipelineState _psComposer;
     private readonly PostProcessingHelpers _helpers = new();
@@ -163,9 +166,17 @@ public class PostProcessing : PostProcessEffect
         
         // Plug into main scene rendering
         MainRenderTask.Instance.AddCustomPostFx(this);
-
+        
+        /*
         // Disable Scene Rendering on Main Task
         MainRenderTask.Instance.ActorsSource = ActorsSources.None;
+        */
+
+        MainRenderTask.Instance.ActorsSource = ActorsSources.Scenes;
+
+        _mainRenderTaskLayer = MainRenderTask.Instance.ViewLayersMask;
+        MainRenderTask.Instance.ViewLayersMask = UILayer;
+        _sceneRenderTask.ViewLayersMask = _sceneRenderTask.Camera.RenderLayersMask & ~UILayer;
     }
 
     /// <summary>
@@ -203,6 +214,7 @@ public class PostProcessing : PostProcessEffect
         // Cleanup
         MainRenderTask.Instance.RemoveCustomPostFx(this);
         MainRenderTask.Instance.ActorsSource = ActorsSources.Scenes;
+        MainRenderTask.Instance.ViewLayersMask = _mainRenderTaskLayer;
 
         if (_sceneRenderTask != null)
         {
@@ -383,12 +395,17 @@ public class PostProcessing : PostProcessEffect
         // If custom viewport is used, we set it here
         // Otherwise, the renderer will use the default viewport
         if (UseCustomViewport)
+        {
+            context.Clear(output.View(), Color.Black);
             context.SetViewport(ref _targetViewport);
+        }
 
         // Source texture holds the final viewport's dimensions, NOT the low res
         // This also applies if UseCustomViewport is set to true
         context.SetRenderTarget(output.View());
         context.DrawFullscreenTriangle();
+
+        context.ClearDepth(MainRenderTask.Instance.Buffers.DepthBuffer.View());
 #if FLAX_EDITOR
         Profiler.EndEventGPU();
 #endif

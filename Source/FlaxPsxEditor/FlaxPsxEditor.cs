@@ -2,6 +2,7 @@ using System;
 using FlaxEditor;
 using FlaxEditor.GUI;
 using FlaxEditor.SceneGraph;
+using FlaxEditor.GUI.ContextMenu;
 using FlaxEditor.Windows.Assets;
 using FlaxEngine;
 using AcidicVoid.FlaxPsx.Lighting;
@@ -16,6 +17,9 @@ namespace AcidicVoid.FlaxPsx
 	public class FlaxPsxEditor : EditorPlugin
     {
         private ToolStripButton _button;
+        private ContextMenuChildMenu _toolsMenu;
+        private bool _toolsMenuCreated;
+        private ContextMenuButton _fixInstancesButton;
         private static readonly VertexLightManager.ReferenceViewDelegate EditorViewProvider = TryGetEditorView;
 
         // Vertex light "New" context menu entries (one actor class, one entry per light type)
@@ -51,6 +55,18 @@ namespace AcidicVoid.FlaxPsx
             // Vertex lights: the editor owns the manager so it runs in edit and play mode
             VertexLightManager.Initialize();
 
+            // Tools > Flax PSX > Fix Material Instance Overrides
+            var toolsMenu = Editor.UI.MenuTools?.ContextMenu;
+            if (toolsMenu != null)
+            {
+                _toolsMenu = toolsMenu.GetChildMenu("Flax PSX");
+                _toolsMenuCreated = _toolsMenu == null;
+                if (_toolsMenuCreated)
+                    _toolsMenu = toolsMenu.AddChildMenu("Flax PSX");
+                _fixInstancesButton = _toolsMenu.ContextMenu.AddButton("Fix Material Instance Overrides", FixMaterialInstanceOverrides);
+                _fixInstancesButton.TooltipText = $"Unticks Override on '{VertexLightManager.MaterialParameterName}' in all material instances of the project, so they use their base material's light data.";
+            }
+
             // Vertex lights: "New/Flax PSX" context menu entries per light type (scene tree, viewport, prefab windows)
             if (Editor.Windows.SceneWin != null)
                 Editor.Windows.SceneWin.ContextMenuShow += OnSceneContextMenuShow;
@@ -76,6 +92,13 @@ namespace AcidicVoid.FlaxPsx
                 VertexLightManager.ReferenceViewProvider = null;
             VertexLightManager.Shutdown();
 
+            _fixInstancesButton?.Dispose();
+            _fixInstancesButton = null;
+            if (_toolsMenuCreated)
+                _toolsMenu?.Dispose();
+            _toolsMenu = null;
+            _toolsMenuCreated = false;
+
             if (_button != null)
             {
                 _button.Dispose();
@@ -83,6 +106,41 @@ namespace AcidicVoid.FlaxPsx
             }
 
             base.Deinitialize();
+        }
+
+        /// <summary>
+        /// Material instances override every parameter by default, including the light data parameter, which then stays
+        /// empty (the manager binds base materials only). Unticks that override in all material instances of the project and saves them.
+        /// </summary>
+        private static void FixMaterialInstanceOverrides()
+        {
+            var ids = Content.GetAllAssetsByType(typeof(MaterialInstance));
+            int fixedCount = 0, failedCount = 0;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                var instance = Content.LoadAsync<MaterialInstance>(ids[i]);
+                if (instance == null || instance.WaitForLoaded())
+                    continue;
+                var parameter = instance.GetParameter(VertexLightManager.MaterialParameterName);
+                if (parameter == null || !parameter.IsOverride)
+                    continue;
+
+                parameter.IsOverride = false;
+                if (instance.Save())
+                {
+                    failedCount++;
+                    Debug.LogError($"[Flax PSX] Failed to save material instance '{instance.Path}'.");
+                }
+                else
+                {
+                    fixedCount++;
+                    Debug.Log($"[Flax PSX] Unticked '{VertexLightManager.MaterialParameterName}' override in '{instance.Path}'.");
+                }
+            }
+
+            var summary = $"Checked {ids.Length} material instance(s): fixed {fixedCount}, failed {failedCount}.";
+            Debug.Log("[Flax PSX] " + summary);
+            MessageBox.Show(summary + (fixedCount > 0 ? "\n\nReopen any open material instance windows to see the change." : string.Empty), "Fix Material Instance Overrides");
         }
 
         private void OnSceneContextMenuShow(ContextMenu contextMenu)

@@ -52,7 +52,7 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 // * xyz:  Vertex Lighting RGB Colors
 // * w:    Vertex Lighting Clamp Max
 
-float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float4 VertexLighting)
+float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float3 VertexLighting)
 {
     // Cache color
     float4 c = Color;
@@ -61,7 +61,7 @@ float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorIn
     float3 vertexColor = VertexColor.rgb;
     float  ambientLightStrength = VertexColor.w;
 
-    c.xyz *= clamp(VertexLighting.xyz, 0, VertexLighting.w);
+    c.xyz *= clamp(VertexLighting.xyz, 0, 1);
     
     // Vertex Color
     int useAdditiveVertexColors = VertexColorInfo.z;

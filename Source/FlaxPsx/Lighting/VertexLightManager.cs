@@ -57,8 +57,6 @@ public static class VertexLightManager
     private static readonly string[] PluginMaterialIds =
     {
         "02d5c97140b2fe13e5c560a65534b453", // PSX Surface Opaque
-        "0bac7c1a44e88c6c0cd2d1bf2804797e", // PSX Surface Opaque Two-Sided
-        "7d36f2d24542bc48fe64eba26a487b90", // PSX Surface Triplanar Opaque
         "7af16ca24189080723678b85d109fa3e", // PSX Liquid
     };
 

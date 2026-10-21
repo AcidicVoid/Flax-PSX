@@ -191,8 +191,111 @@ public static class VertexLightManager
     /// </summary>
     internal static void Register(PsxVertexLight light)
     {
-        if (light && !_lights.Contains(light))
-            _lights.Add(light);
+        if (!light || _lights.Contains(light))
+            return;
+        _lights.Add(light);
+        if (light.LightType == PsxLightType.Directional)
+            ResolveDirectional(light);
+    }
+
+    /// <summary>
+    /// Called by <see cref="PsxVertexLight"/> when its type changes.
+    /// </summary>
+    internal static void OnLightTypeChanged(PsxVertexLight light)
+    {
+        if (light && light.LightType == PsxLightType.Directional && _lights.Contains(light))
+            ResolveDirectional(light);
+    }
+
+    /// <summary>
+    /// Returns the active directional light of a scene: the registered directional light with the highest
+    /// stamp, ties go to the one registered first. Null if the scene has no registered directional light.
+    /// </summary>
+    /// <param name="scene">The scene (null for lights outside of any scene, e.g. in a prefab preview).</param>
+    public static PsxVertexLight GetActiveDirectional(Scene scene)
+    {
+        PsxVertexLight best = null;
+        for (int i = 0; i < _lights.Count; i++)
+        {
+            var light = _lights[i];
+            if (!light || light.LightType != PsxLightType.Directional || light.Scene != scene)
+                continue;
+            if (best == null || light.ActiveStamp > best.ActiveStamp)
+                best = light;
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// True if the light is a registered directional light and the active one of its scene.
+    /// </summary>
+    /// <param name="light">The light.</param>
+    public static bool IsActiveDirectional(PsxVertexLight light)
+    {
+        return light && light.LightType == PsxLightType.Directional && _lights.Contains(light) && GetActiveDirectional(light.Scene) == light;
+    }
+
+    /// <summary>
+    /// Makes the light the active directional light of its scene. Only one directional light per scene is used.
+    /// The choice is stored in the light (serialized with the scene), so it survives saving and reloading.
+    /// </summary>
+    /// <param name="light">The light. Must be a directional light.</param>
+    public static void SetActiveDirectional(PsxVertexLight light)
+    {
+        if (!light)
+            return;
+        if (light.LightType != PsxLightType.Directional)
+        {
+            Debug.LogWarning($"[VertexLightManager] '{light.Name}' is not a directional light and can't be the active directional light.");
+            return;
+        }
+        if (IsActiveDirectional(light))
+            return;
+
+        // Outrank every other directional light of the scene
+        var scene = light.Scene;
+        int max = 0;
+        for (int i = 0; i < _lights.Count; i++)
+        {
+            var other = _lights[i];
+            if (other && other != light && other.LightType == PsxLightType.Directional && other.Scene == scene)
+                max = Math.Max(max, other.ActiveStamp);
+        }
+        light.ActiveStamp = max + 1;
+    }
+
+    /// <summary>
+    /// Keeps the active directional light stable when another directional light appears in the same scene.
+    /// Never changes which light is active, only makes the current choice persistent.
+    /// </summary>
+    private static void ResolveDirectional(PsxVertexLight light)
+    {
+        var scene = light.Scene;
+        PsxVertexLight best = null;
+        for (int i = 0; i < _lights.Count; i++)
+        {
+            var other = _lights[i];
+            if (!other || other == light || other.LightType != PsxLightType.Directional || other.Scene != scene)
+                continue;
+            if (best == null || other.ActiveStamp > best.ActiveStamp)
+                best = other;
+        }
+        if (best == null)
+            return;
+
+        if (light.ActiveStamp == best.ActiveStamp)
+        {
+            if (best.ActiveStamp == 0)
+            {
+                // Neither was chosen explicitly yet: freeze the current active one (otherwise hierarchy order would decide after reloading)
+                best.ActiveStamp = 1;
+            }
+            else
+            {
+                // Copy of the active light (e.g. duplicated): the original stays active
+                light.ActiveStamp = 0;
+            }
+        }
     }
 
     /// <summary>
@@ -396,6 +499,10 @@ public static class VertexLightManager
             float key;
             if (light.LightType == PsxLightType.Directional)
             {
+                // Only the active directional light of each scene is used
+                if (GetActiveDirectional(light.Scene) != light)
+                    continue;
+
                 // Unlimited range: never culled, always first
                 key = -1.0f;
             }
@@ -432,13 +539,7 @@ public static class VertexLightManager
 
     private static float GetRange(PsxVertexLight light)
     {
-        switch (light)
-        {
-        case PsxPointLight point: return point.Range;
-        case PsxSpotLight spot: return spot.Range;
-        case PsxAreaLight area: return area.Range;
-        default: return float.MaxValue;
-        }
+        return light.LightType == PsxLightType.Directional ? float.MaxValue : light.Range;
     }
 
     private static void Pack(int count, float time)
@@ -456,40 +557,40 @@ public static class VertexLightManager
             var colour = new Float3(color.R * intensity, color.G * intensity, color.B * intensity);
             Float3 position = light.Position;
 
-            switch (light)
+            switch (light.LightType)
             {
-            case PsxDirectionalLight directional:
+            case PsxLightType.Directional:
                 _data[t + 0] = new Float4(position, 0.0f); // No range limit
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Directional);
-                _data[t + 2] = new Float4(directional.EffectiveDirection, 0.0f);
+                _data[t + 2] = new Float4(light.EffectiveDirection, 0.0f);
                 _data[t + 3] = Float4.Zero;
                 break;
-            case PsxPointLight point:
-                _data[t + 0] = new Float4(position, 1.0f / point.Range);
+            case PsxLightType.Point:
+                _data[t + 0] = new Float4(position, 1.0f / light.Range);
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Point);
-                _data[t + 2] = new Float4(0.0f, 0.0f, 0.0f, (float)(int)point.Falloff);
+                _data[t + 2] = new Float4(0.0f, 0.0f, 0.0f, (float)(int)light.Falloff);
                 _data[t + 3] = Float4.Zero;
                 break;
-            case PsxSpotLight spot:
+            case PsxLightType.Spot:
             {
-                float falloff = (int)spot.Falloff + (int)spot.ConeFalloff * 32;
-                float cosHalfAngle = Mathf.Cos(spot.Angle * 0.5f * Mathf.DegreesToRadians);
-                _data[t + 0] = new Float4(position, 1.0f / spot.Range);
+                float falloff = (int)light.Falloff + (int)light.ConeFalloff * 32;
+                float cosHalfAngle = Mathf.Cos(light.Angle * 0.5f * Mathf.DegreesToRadians);
+                _data[t + 0] = new Float4(position, 1.0f / light.Range);
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Spot);
-                _data[t + 2] = new Float4(spot.EffectiveDirection, falloff);
+                _data[t + 2] = new Float4(light.EffectiveDirection, falloff);
                 _data[t + 3] = new Float4(0.0f, 0.0f, 0.0f, cosHalfAngle);
                 break;
             }
-            case PsxAreaLight area:
+            case PsxLightType.Area:
             {
-                Transform transform = area.Transform;
+                Transform transform = light.Transform;
                 Float3 normal = transform.Forward;
                 float roll = PsxLightMath.ComputeRoll(normal, transform.Right);
-                float shape = area.Shape == PsxAreaLightShape.Circle ? (float)PsxAreaLightShape.Circle : (float)PsxAreaLightShape.Rectangle;
-                Float2 half = area.HalfSize;
-                _data[t + 0] = new Float4(position, 1.0f / area.Range);
+                float shape = light.Shape == PsxAreaLightShape.Circle ? (float)PsxAreaLightShape.Circle : (float)PsxAreaLightShape.Rectangle;
+                Float2 half = light.HalfSize;
+                _data[t + 0] = new Float4(position, 1.0f / light.Range);
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Area);
-                _data[t + 2] = new Float4(normal, (float)(int)area.Falloff);
+                _data[t + 2] = new Float4(normal, (float)(int)light.Falloff);
                 _data[t + 3] = new Float4(shape, half.X, half.Y, roll);
                 break;
             }
@@ -540,17 +641,22 @@ public static class VertexLightManager
             var header = elements[0];
             int count = (int)header.X;
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"[VertexLightManager] Buffer dump: {elements.Length} elements, {count} lights, ambient = ({header.Y}, {header.Z}, {header.W})");
+            sb.AppendLine($"[VertexLightManager] Buffer dump: {elements.Length} elements, {count} lights, ambient = ({header.Y:G6}, {header.Z:G6}, {header.W:G6})");
             for (int i = 0; i < count && 1 + (i + 1) * ElementsPerLight <= elements.Length; i++)
             {
                 int t = 1 + i * ElementsPerLight;
-                sb.AppendLine($"  [{i}] type = {elements[t + 1].W}, invRange = {elements[t].W}");
-                sb.AppendLine($"      E0 = {elements[t + 0]}");
-                sb.AppendLine($"      E1 = {elements[t + 1]}");
-                sb.AppendLine($"      E2 = {elements[t + 2]}");
-                sb.AppendLine($"      E3 = {elements[t + 3]}");
+                sb.AppendLine($"  [{i}] type = {elements[t + 1].W:G6}, invRange = {elements[t].W:G6}");
+                sb.AppendLine($"      E0 = {Format(elements[t + 0])}");
+                sb.AppendLine($"      E1 = {Format(elements[t + 1])}");
+                sb.AppendLine($"      E2 = {Format(elements[t + 2])}");
+                sb.AppendLine($"      E3 = {Format(elements[t + 3])}");
             }
             Debug.Log(sb.ToString());
         });
+    }
+
+    private static string Format(Float4 v)
+    {
+        return $"({v.X:G6}, {v.Y:G6}, {v.Z:G6}, {v.W:G6})";
     }
 }

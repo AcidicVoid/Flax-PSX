@@ -6,12 +6,14 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 
 /// <summary>
 /// Vertex light type. Values match the <c>type</c> field of the light data buffer.
+/// Can be changed at any time via <see cref="PsxVertexLight.LightType"/>.
 /// </summary>
 public enum PsxLightType
 {
     /// <summary>
-    /// Empty slot, ignored by the shader.
+    /// Empty slot, ignored by the shader. Not selectable as a light type.
     /// </summary>
+    [HideInEditor]
     Empty = 0,
 
     /// <summary>

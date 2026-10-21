@@ -58,10 +58,13 @@ public class PsxVertexLightingSettings : Script
     public int UploadedLights => VertexLightManager.UploadedLightCount;
 
     /// <summary>
-    /// Tick to log the GPU light data buffer contents once (read back on a background thread).
+    /// Logs the GPU light data buffer contents (read back on a background thread).
     /// </summary>
-    [EditorOrder(130), EditorDisplay("Debug"), ShowInEditor, NoSerialize]
-    public bool DumpBuffer;
+    [Button("Dump Light Buffer")]
+    public void DumpBuffer()
+    {
+        VertexLightManager.DebugDumpBuffer();
+    }
 
     /// <inheritdoc />
     public override void OnEnable()
@@ -74,12 +77,6 @@ public class PsxVertexLightingSettings : Script
     {
         // Cheap assignments; keeps editor and script changes in sync
         Apply();
-
-        if (DumpBuffer)
-        {
-            DumpBuffer = false;
-            VertexLightManager.DebugDumpBuffer();
-        }
     }
 
     /// <summary>

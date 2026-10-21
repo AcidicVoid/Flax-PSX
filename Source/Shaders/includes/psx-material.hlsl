@@ -61,7 +61,7 @@ float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorIn
     float3 vertexColor = VertexColor.rgb;
     float  ambientLightStrength = VertexColor.w;
 
-    c.xyz *= clamp(VertexLighting.xyz, 0, 1);
+    c.xyz *= clamp(VertexLighting.xyz, 0, 2);
     
     // Vertex Color
     int useAdditiveVertexColors = VertexColorInfo.z;

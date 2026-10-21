@@ -336,7 +336,8 @@ public static class VertexLightManager
     }
 
     /// <summary>
-    /// Scans all loaded materials and binds the light data buffer to those with a <see cref="MaterialParameterName"/> parameter.
+    /// Scans all loaded materials and binds the light data buffer to those with a <see cref="MaterialParameterName"/> parameter
+    /// (and to material instances that override it).
     /// Runs automatically on scene load and every <see cref="MaterialScanInterval"/> seconds.
     /// </summary>
     public static void ScanMaterials()
@@ -351,12 +352,24 @@ public static class VertexLightManager
         Content.GetAssets(ref _assetBuffer, out int count);
         for (int i = 0; i < count; i++)
         {
-            if (_assetBuffer[i] is not Material material || !material.IsLoaded)
-                continue;
-            if (material.GetParameter(MaterialParameterName) == null)
-                continue;
-            if (!_materials.Contains(material))
-                _materials.Add(material);
+            if (_assetBuffer[i] is Material material && material.IsLoaded)
+            {
+                if (material.GetParameter(MaterialParameterName) == null)
+                    continue;
+                if (!_materials.Contains(material))
+                    _materials.Add(material);
+            }
+            else if (_assetBuffer[i] is MaterialInstance instance && instance.IsLoaded)
+            {
+                // Instances use the base material's binding unless they override the parameter.
+                // Overriding ones get the same buffer too (the data still exists only once), but should not override it.
+                var parameter = instance.GetParameter(MaterialParameterName);
+                if (parameter == null || !parameter.IsOverride || _materials.Contains(instance))
+                    continue;
+                _materials.Add(instance);
+                if (_reportedMaterials.Add(instance.ID))
+                    Debug.LogWarning($"[VertexLightManager] Material instance '{instance.Path}' overrides '{MaterialParameterName}'. It's bound anyway, but the override isn't needed: untick it.");
+            }
         }
 
         // Clear references so unloaded assets aren't kept alive by the buffer

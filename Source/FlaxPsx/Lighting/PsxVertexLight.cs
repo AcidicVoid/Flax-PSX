@@ -161,18 +161,8 @@ public class PsxVertexLight : Actor
     }
 
     /// <summary>
-    /// Directional and spot only: light direction in world space (the direction the light shines towards).
-    /// Backed by the actor's rotation, so rotating the actor changes it too. Overridden by Target if set.
-    /// </summary>
-    [EditorOrder(90), EditorDisplay("Light", "Direction"), NoSerialize, VisibleIf(nameof(HasDirection))]
-    public Float3 LightDirection
-    {
-        get => Direction;
-        set => SetDirectionFromVector(value);
-    }
-
-    /// <summary>
-    /// Directional and spot only: optional target. If set, the light faces towards the target and LightDirection is ignored.
+    /// Directional and spot only: optional target. If set, the light shines towards the target and the actor's rotation is ignored.
+    /// Without a target, the light shines along the actor's forward axis (set it via the actor's rotation, or <see cref="Actor.Forward"/> from scripts).
     /// </summary>
     [EditorOrder(95), EditorDisplay("Light"), VisibleIf(nameof(HasDirection))]
     public Actor Target
@@ -246,10 +236,10 @@ public class PsxVertexLight : Actor
     public bool IsActiveDirectional => VertexLightManager.IsActiveDirectional(this);
 
     /// <summary>
-    /// Direction actually used for lighting. Directional and spot: towards Target if set, otherwise LightDirection.
-    /// Area: the actor's forward direction (shape normal). Point: unused.
+    /// Direction actually used for lighting. Directional and spot: towards Target if set, otherwise the actor's forward axis.
+    /// Area: the actor's forward axis (shape normal). Point: unused.
     /// </summary>
-    public Float3 EffectiveDirection => HasDirection ? GetDirectionTowards(_target) : (Float3)Direction;
+    public Float3 EffectiveDirection => HasDirection ? GetDirectionTowards(_target) : Forward;
 
     /// <summary>
     /// Area only: half size of the shape as used by the shader. Square uses X for both axes, Circle stores the radius in X.
@@ -291,17 +281,7 @@ public class PsxVertexLight : Actor
     }
 
     /// <summary>
-    /// Sets the actor's rotation from a direction vector. Ignores (near) zero vectors.
-    /// </summary>
-    private void SetDirectionFromVector(Float3 value)
-    {
-        if (value.LengthSquared < 1e-8f)
-            return;
-        Direction = value.Normalized;
-    }
-
-    /// <summary>
-    /// Direction from this light towards the target. Falls back to the actor's direction
+    /// Direction from this light towards the target. Falls back to the actor's forward axis
     /// if there is no target, the target is this actor, or both are at the same position.
     /// </summary>
     private Float3 GetDirectionTowards(Actor target)
@@ -313,7 +293,7 @@ public class PsxVertexLight : Actor
             if (length > 0.001f)
                 return delta / length;
         }
-        return Direction;
+        return Forward;
     }
 
 #if FLAX_EDITOR
@@ -395,7 +375,7 @@ public class PsxVertexLight : Actor
         }
         case PsxLightType.Area:
             // Facing normal and range
-            DebugDraw.DrawLine(position, position + (Float3)Direction * Mathf.Min(_range, 100.0f), color);
+            DebugDraw.DrawLine(position, position + Forward * Mathf.Min(_range, 100.0f), color);
             DebugDraw.DrawWireSphere(new BoundingSphere(position, _range), color * 0.5f);
             break;
         }

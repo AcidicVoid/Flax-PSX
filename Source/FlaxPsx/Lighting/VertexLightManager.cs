@@ -25,6 +25,14 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 /// The range test only needs E0, so the shader can skip loading E1–E3 for lights out of range.
 /// A texture is used instead of a GPU Buffer parameter because the 1.13 editor can't open material instances
 /// of materials with GPU Buffer parameters (SurfaceUtils.ToType has no case for it).
+/// <para>
+/// The texture holds neutral data (no lights, ambient 1 = unlit) by default. Only render tasks that render the scene
+/// (<see cref="AddLitTask"/>) see the real light data, so asset previews and thumbnails render unlit.
+/// </para>
+/// <para>
+/// Materials are bound explicitly, not by scanning: the Flax-PSX base materials automatically,
+/// other materials via <see cref="RegisterMaterial"/>. Material instances use their base material's binding.
+/// </para>
 /// </remarks>
 public static class VertexLightManager
 {
@@ -44,9 +52,15 @@ public static class VertexLightManager
     public const float CullingRangeMargin = 1.05f;
 
     /// <summary>
-    /// Interval (seconds) between scans for newly loaded materials.
+    /// Flax-PSX base materials using vertex lighting, registered automatically (asset IDs).
     /// </summary>
-    public const float MaterialScanInterval = 2.0f;
+    private static readonly string[] PluginMaterialIds =
+    {
+        "02d5c97140b2fe13e5c560a65534b453", // PSX Surface Opaque
+        "0bac7c1a44e88c6c0cd2d1bf2804797e", // PSX Surface Opaque Two-Sided
+        "7d36f2d24542bc48fe64eba26a487b90", // PSX Surface Triplanar Opaque
+        "7af16ca24189080723678b85d109fa3e", // PSX Liquid
+    };
 
     /// <summary>
     /// Provides a reference view (position and frustum) for culling and sorting. Return false to fall back to the camera.
@@ -59,12 +73,13 @@ public static class VertexLightManager
     private static PsxVertexLight[] _candidates = new PsxVertexLight[64];
     private static float[] _keys = new float[64];
     private static Float4[] _data = Array.Empty<Float4>();
-    private static Asset[] _assetBuffer;
+    private static Float4[] _neutralData = Array.Empty<Float4>();
+    private static readonly List<SceneRenderTask> _litTasks = new List<SceneRenderTask>();
     private static GPUTexture _texture;
     private static RenderTask _task;
+    private static MainRenderTask _mainTask;
     private static PsxVertexLightCap _cap = PsxVertexLightCap.Lights64;
     private static bool _textureDirty = true;
-    private static float _nextMaterialScan;
     private static bool _initialized;
 
     /// <summary>
@@ -144,10 +159,15 @@ public static class VertexLightManager
         _task.Enabled = true;
         _task.Render += OnRender;
 
-        Level.SceneLoaded += OnSceneLoaded;
-
         _textureDirty = true;
-        _nextMaterialScan = 0.0f;
+
+        // Flax-PSX base materials (materials without the light data parameter are ignored)
+        for (int i = 0; i < PluginMaterialIds.Length; i++)
+        {
+            var material = Content.LoadAsync<MaterialBase>(FlaxEngine.Json.JsonSerializer.ParseID(PluginMaterialIds[i]));
+            if (material)
+                RegisterMaterial(material);
+        }
     }
 
     /// <summary>
@@ -158,8 +178,6 @@ public static class VertexLightManager
         if (!_initialized)
             return;
         _initialized = false;
-
-        Level.SceneLoaded -= OnSceneLoaded;
 
         if (_task)
         {
@@ -172,12 +190,27 @@ public static class VertexLightManager
         for (int i = 0; i < _materials.Count; i++)
         {
             var material = _materials[i];
-            var parameter = material ? material.GetParameter(MaterialParameterName) : null;
+            if (!material)
+                continue;
+            material.Loaded -= OnMaterialLoaded;
+            var parameter = material.GetParameter(MaterialParameterName);
             if (parameter != null && parameter.Value as GPUTexture == _texture)
                 parameter.Value = null;
         }
         _materials.Clear();
         _reportedMaterials.Clear();
+
+        for (int i = 0; i < _litTasks.Count; i++)
+        {
+            var task = _litTasks[i];
+            if (task)
+            {
+                task.PreRender -= OnLitTaskPreRender;
+                task.PostRender -= OnLitTaskPostRender;
+            }
+        }
+        _litTasks.Clear();
+        _mainTask = null;
 
         if (_texture)
         {
@@ -310,17 +343,21 @@ public static class VertexLightManager
     }
 
     /// <summary>
-    /// Explicitly binds the light data texture to a material (e.g. a material that isn't loaded yet during the automatic scan).
-    /// Base materials are found automatically; material instances inherit the binding unless they override the parameter.
+    /// Binds the light data texture to a material that uses <c>PsxVertexLighting</c> (the Flax-PSX base materials are registered automatically).
+    /// The material is kept loaded and rebound whenever it's reloaded (e.g. after editing it). Material instances inherit the binding.
     /// </summary>
-    /// <param name="material">The material.</param>
-    /// <returns>True if the material has a valid light data parameter.</returns>
+    /// <param name="material">The material (may still be loading).</param>
+    /// <returns>True if the material is loaded and has a valid light data parameter.</returns>
     public static bool RegisterMaterial(MaterialBase material)
     {
         if (!material)
             return false;
         if (!_materials.Contains(material))
+        {
+            // Holding the managed object keeps the asset loaded; Loaded also fires after reloads, which reset parameter values
             _materials.Add(material);
+            material.Loaded += OnMaterialLoaded;
+        }
         return BindMaterial(material);
     }
 
@@ -330,88 +367,44 @@ public static class VertexLightManager
     /// <param name="material">The material.</param>
     public static void UnregisterMaterial(MaterialBase material)
     {
-        if (!material)
+        if (!material || !_materials.Remove(material))
             return;
-        _materials.Remove(material);
+        material.Loaded -= OnMaterialLoaded;
         var parameter = material.GetParameter(MaterialParameterName);
         if (parameter != null && parameter.Value as GPUTexture == _texture)
             parameter.Value = null;
     }
 
-    /// <summary>
-    /// Scans all loaded materials and binds the light data texture to those with a <see cref="MaterialParameterName"/> parameter
-    /// (and to material instances that override it).
-    /// Runs automatically on scene load and every <see cref="MaterialScanInterval"/> seconds.
-    /// </summary>
-    public static void ScanMaterials()
+    private static void OnMaterialLoaded(Asset asset)
     {
-        // Drop destroyed materials
-        for (int i = _materials.Count - 1; i >= 0; i--)
-        {
-            if (!_materials[i])
-                _materials.RemoveAt(i);
-        }
-
-        Content.GetAssets(ref _assetBuffer, out int count);
-        for (int i = 0; i < count; i++)
-        {
-            if (_assetBuffer[i] is Material material && material.IsLoaded)
-            {
-                if (material.GetParameter(MaterialParameterName) == null)
-                    continue;
-                if (!_materials.Contains(material))
-                    _materials.Add(material);
-            }
-            else if (_assetBuffer[i] is MaterialInstance instance && instance.IsLoaded)
-            {
-                // Instances use the base material's binding unless they override the parameter.
-                // Overriding ones get the same texture too (the data still exists only once), but should not override it.
-                var parameter = instance.GetParameter(MaterialParameterName);
-                if (parameter == null || !parameter.IsOverride || _materials.Contains(instance))
-                    continue;
-                _materials.Add(instance);
-                if (_reportedMaterials.Add(instance.ID))
-                    Debug.LogWarning($"[VertexLightManager] Material instance '{instance.Path}' overrides '{MaterialParameterName}'. It's bound anyway, but the override isn't needed: untick it.");
-            }
-        }
-
-        // Clear references so unloaded assets aren't kept alive by the buffer
-        if (_assetBuffer != null)
-            Array.Clear(_assetBuffer, 0, _assetBuffer.Length);
-
-        // (Re)bind everything; this also restores bindings lost through asset reloads
-        for (int i = 0; i < _materials.Count; i++)
-            BindMaterial(_materials[i]);
-    }
-
-    private static void OnSceneLoaded(Scene scene, Guid sceneId)
-    {
-        _nextMaterialScan = 0.0f;
+        BindMaterial(asset as MaterialBase);
     }
 
     private static void OnRender(RenderTask task, GPUContext context)
     {
-        if (_textureDirty && !CreateTexture())
+        if (_textureDirty && !CreateTexture(context))
             return;
         if (!_texture)
             return;
 
-        float now = Time.TimeSinceStartup;
-        if (now >= _nextMaterialScan)
+        // The game's main view renders the scene (registered here since it may not exist yet during plugin initialization)
+        var mainTask = MainRenderTask.Instance;
+        if (mainTask && mainTask != _mainTask)
         {
-            _nextMaterialScan = now + MaterialScanInterval;
-            ScanMaterials();
+            _mainTask = mainTask;
+            AddLitTask(mainTask);
         }
 
         // Game time is paused in the editor's edit mode, so animate on real time there
         float time = Engine.IsPlayMode ? Time.GameTime : Time.TimeSinceStartup;
         int count = CollectLights();
         UploadedLightCount = count;
+
+        // Pack only; lit tasks upload it in their PreRender, everything else keeps seeing the neutral data
         Pack(count, time);
-        Upload(context);
     }
 
-    private static bool CreateTexture()
+    private static bool CreateTexture(GPUContext context)
     {
         _textureDirty = false;
 
@@ -436,6 +429,11 @@ public static class VertexLightManager
         _texture.ResidentMipLevels = 1;
 
         _data = new Float4[elements];
+
+        // Neutral data (default content): no lights, ambient 1 (= texture colour unchanged)
+        _neutralData = new Float4[elements];
+        _neutralData[0] = new Float4(0.0f, 1.0f, 1.0f, 1.0f);
+        UploadData(context, _neutralData);
 
         // Point all known materials to the new texture
         for (int i = 0; i < _materials.Count; i++)
@@ -624,14 +622,64 @@ public static class VertexLightManager
         }
     }
 
-    private static unsafe void Upload(GPUContext context)
+    private static unsafe void UploadData(GPUContext context, Float4[] data)
     {
         // UpdateTexture always writes the whole row (max. 16 KB at 256 lights); unused slots are never read by the shader
-        uint rowPitch = (uint)(_data.Length * sizeof(Float4));
-        fixed (Float4* ptr = _data)
+        uint rowPitch = (uint)(data.Length * sizeof(Float4));
+        fixed (Float4* ptr = data)
         {
             context.UpdateTexture(_texture, 0, 0, new IntPtr(ptr), rowPitch, rowPitch);
         }
+    }
+
+    /// <summary>
+    /// Registers a render task that renders the scene: while it renders, materials see the real light data.
+    /// All other tasks (asset previews, thumbnails, unregistered tasks) see neutral data and render unlit.
+    /// The game's main render task is registered automatically; register your own scene render tasks (e.g. render-to-texture cameras).
+    /// Destroyed tasks are removed automatically.
+    /// </summary>
+    /// <param name="task">The render task.</param>
+    public static void AddLitTask(SceneRenderTask task)
+    {
+        if (!task || _litTasks.Contains(task))
+            return;
+
+        // Drop destroyed tasks
+        for (int i = _litTasks.Count - 1; i >= 0; i--)
+        {
+            if (!_litTasks[i])
+                _litTasks.RemoveAt(i);
+        }
+
+        _litTasks.Add(task);
+        task.PreRender += OnLitTaskPreRender;
+        task.PostRender += OnLitTaskPostRender;
+    }
+
+    /// <summary>
+    /// Reverts <see cref="AddLitTask"/>.
+    /// </summary>
+    /// <param name="task">The render task.</param>
+    public static void RemoveLitTask(SceneRenderTask task)
+    {
+        if (!task || !_litTasks.Remove(task))
+            return;
+        task.PreRender -= OnLitTaskPreRender;
+        task.PostRender -= OnLitTaskPostRender;
+    }
+
+    private static void OnLitTaskPreRender(GPUContext context, ref RenderContext renderContext)
+    {
+        // Real light data for this task only; the GPU executes the updates in order with the draws
+        if (_texture && _data.Length > 0)
+            UploadData(context, _data);
+    }
+
+    private static void OnLitTaskPostRender(GPUContext context, ref RenderContext renderContext)
+    {
+        // Back to neutral for everything rendered after this task
+        if (_texture && _neutralData.Length > 0)
+            UploadData(context, _neutralData);
     }
 
     // TODO: temporary debug helper, remove in step 10

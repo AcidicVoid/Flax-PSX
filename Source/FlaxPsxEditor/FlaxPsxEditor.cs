@@ -55,6 +55,11 @@ namespace AcidicVoid.FlaxPsx
             if (Editor.Windows.SceneWin != null)
                 Editor.Windows.SceneWin.ContextMenuShow += OnSceneContextMenuShow;
             PrefabWindow.ContextMenuShow += OnPrefabContextMenuShow;
+
+            // Vertex lights: the scene editor viewport renders the scene (asset previews and thumbnails stay unlit)
+            var editViewportTask = Editor.Windows.EditWin?.Viewport?.Task;
+            if (editViewportTask)
+                VertexLightManager.AddLitTask(editViewportTask);
         }
 
         /// <inheritdoc />
@@ -63,6 +68,9 @@ namespace AcidicVoid.FlaxPsx
             if (Editor?.Windows?.SceneWin != null)
                 Editor.Windows.SceneWin.ContextMenuShow -= OnSceneContextMenuShow;
             PrefabWindow.ContextMenuShow -= OnPrefabContextMenuShow;
+            var editViewportTask = Editor?.Windows?.EditWin?.Viewport?.Task;
+            if (editViewportTask)
+                VertexLightManager.RemoveLitTask(editViewportTask);
 
             if (VertexLightManager.ReferenceViewProvider == EditorViewProvider)
                 VertexLightManager.ReferenceViewProvider = null;

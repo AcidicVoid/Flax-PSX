@@ -58,9 +58,9 @@ public class PsxVertexLightingSettings : Script
     public int UploadedLights => VertexLightManager.UploadedLightCount;
 
     /// <summary>
-    /// Logs the GPU light data buffer contents (read back on a background thread).
+    /// Logs the light data as last uploaded to the light data texture.
     /// </summary>
-    [Button("Dump Light Buffer")]
+    [Button("Dump Light Data")]
     public void DumpBuffer()
     {
         VertexLightManager.DebugDumpBuffer();

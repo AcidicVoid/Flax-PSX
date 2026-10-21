@@ -5,7 +5,7 @@ using FlaxEngine;
 namespace AcidicVoid.FlaxPsx.Lighting;
 
 /// <summary>
-/// Vertex light type. Values match the <c>type</c> field of the light data buffer.
+/// Vertex light type. Values match the <c>type</c> field of the light data texture.
 /// Can be changed at any time via <see cref="PsxVertexLight.LightType"/>.
 /// </summary>
 public enum PsxLightType
@@ -162,7 +162,7 @@ public enum PsxLightAnimation
 }
 
 /// <summary>
-/// Maximum number of vertex lights uploaded per frame. Only sets the light data buffer size;
+/// Maximum number of vertex lights uploaded per frame. Only sets the light data texture size;
 /// shader cost scales with the lights actually uploaded.
 /// </summary>
 public enum PsxVertexLightCap

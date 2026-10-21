@@ -6,7 +6,7 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 
 /// <summary>
 /// Flax-PSX vertex light (directional, point, spot or area). Not an engine light: it only carries
-/// parameters, which are packed into the vertex light data buffer and evaluated by PSX materials.
+/// parameters, which are packed into the vertex light data texture and evaluated by PSX materials.
 /// The light type can be changed at any time, also from scripts.
 /// </summary>
 /// <remarks>
@@ -53,7 +53,7 @@ public class PsxVertexLight : Actor
     private int _activeStamp;
 
     /// <summary>
-    /// Light type, written to the <c>type</c> field of the light data buffer.
+    /// Light type, written to the <c>type</c> field of the light data texture.
     /// </summary>
     [EditorOrder(-10), EditorDisplay("Light", "Type")]
     public PsxLightType LightType

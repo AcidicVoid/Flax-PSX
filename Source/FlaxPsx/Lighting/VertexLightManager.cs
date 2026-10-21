@@ -19,7 +19,7 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 /// <item>Light i starts at element 1 + 4 * i:</item>
 /// <item>E0: position.xyz, 1 / range (0 = no range limit, directional; area: 1 / (range + shape radius), so the test covers the whole shape)</item>
 /// <item>E1: colour.rgb (premultiplied by brightness and animation), type</item>
-/// <item>E2: direction.xyz, falloff (spot: distance falloff + cone falloff * 32)</item>
+/// <item>E2: direction.xyz, falloff (0 = linear, 1 = quadratic; spot: distance falloff + cone falloff * 2)</item>
 /// <item>E3: shape (area only: 1 = rectangle, 2 = circle), halfSize.x, halfSize.y, angle (spot: cos(angle / 2), area: roll)</item>
 /// </list>
 /// The range test only needs E0, so the shader can skip loading E1–E3 for lights out of range.
@@ -575,6 +575,14 @@ public static class VertexLightManager
         return light.Shape == PsxAreaLightShape.Circle ? half.X : half.Length;
     }
 
+    /// <summary>
+    /// Falloff value for the shader (0 = linear, 1 = quadratic). Values of removed curves (older scenes) fall back to linear.
+    /// </summary>
+    private static float FalloffValue(PsxLightFalloff falloff)
+    {
+        return falloff == PsxLightFalloff.Quadratic ? 1.0f : 0.0f;
+    }
+
     private static void Pack(int count, float time)
     {
         var ambient = Ambient;
@@ -601,12 +609,12 @@ public static class VertexLightManager
             case PsxLightType.Point:
                 _data[t + 0] = new Float4(position, 1.0f / light.Range);
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Point);
-                _data[t + 2] = new Float4(0.0f, 0.0f, 0.0f, (float)(int)light.Falloff);
+                _data[t + 2] = new Float4(0.0f, 0.0f, 0.0f, FalloffValue(light.Falloff));
                 _data[t + 3] = Float4.Zero;
                 break;
             case PsxLightType.Spot:
             {
-                float falloff = (int)light.Falloff + (int)light.ConeFalloff * 32;
+                float falloff = FalloffValue(light.Falloff) + FalloffValue(light.ConeFalloff) * 2.0f;
                 float cosHalfAngle = Mathf.Cos(light.Angle * 0.5f * Mathf.DegreesToRadians);
                 _data[t + 0] = new Float4(position, 1.0f / light.Range);
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Spot);
@@ -623,7 +631,7 @@ public static class VertexLightManager
                 Float2 half = light.HalfSize;
                 _data[t + 0] = new Float4(position, 1.0f / (light.Range + GetAreaRadius(light)));
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Area);
-                _data[t + 2] = new Float4(normal, (float)(int)light.Falloff);
+                _data[t + 2] = new Float4(normal, FalloffValue(light.Falloff));
                 _data[t + 3] = new Float4(shape, half.X, half.Y, roll);
                 break;
             }

@@ -177,7 +177,7 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, fl
 //   light i, texel 1 + 4 * i + n:
 //     E0: position.xyz, 1 / range (0 = no range limit; area: 1 / (range + shape radius))
 //     E1: colour.rgb (premultiplied), type (1 = directional, 2 = point, 3 = spot, 4 = area)
-//     E2: direction.xyz, falloff
+//     E2: direction.xyz, falloff (0 = linear, 1 = quadratic; spot: distance + cone * 2)
 //     E3: area: shape, halfSize.xy / spot: w = cos(angle / 2), area: w = roll
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -192,68 +192,12 @@ float4 PsxLoadLightElement(Texture2D lights, uint index)
     return lights.Load(int3(index, 0, 0));
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Falloff curves: Robert Penner's easing equations (MIT), in the common closed forms (easings.net).
-// Index = PsxLightFalloff value: 0 = Linear, then In/Out/InOut for Sine, Quad, Cubic, Quart, Quint, Expo, Circ, Bounce.
-// Back and Elastic are excluded on purpose (they overshoot below 0 and above 1).
-// Only the "In" curve of each family is implemented; Out and InOut are derived from it:
-//   Out(t) = 1 - In(1 - t),  InOut(t) = t < 0.5 ? In(2t) / 2 : 1 - In(2 - 2t) / 2
-// This is exact for all families used here and keeps the shader small (one curve evaluation per call).
-// ---------------------------------------------------------------------------------------------------------------------
-
-float PsxEaseOutBounce(float t)
-{
-    const float n1 = 7.5625;
-    const float d1 = 2.75;
-    if (t < 1.0 / d1)
-        return n1 * t * t;
-    if (t < 2.0 / d1)
-    {
-        t -= 1.5 / d1;
-        return n1 * t * t + 0.75;
-    }
-    if (t < 2.5 / d1)
-    {
-        t -= 2.25 / d1;
-        return n1 * t * t + 0.9375;
-    }
-    t -= 2.625 / d1;
-    return n1 * t * t + 0.984375;
-}
-
-// "In" curve of a family (0 = Sine, 1 = Quad, 2 = Cubic, 3 = Quart, 4 = Quint, 5 = Expo, 6 = Circ, 7 = Bounce)
-float PsxEaseIn(uint family, float x)
-{
-    x = saturate(x);
-    if (family == 0)
-        return 1.0 - cos(x * PI * 0.5);
-    if (family <= 4)
-        return pow(x, family + 1.0);
-    if (family == 5)
-        return x <= 0.0 ? 0.0 : exp2(10.0 * x - 10.0);
-    if (family == 6)
-        return 1.0 - sqrt(saturate(1.0 - x * x));
-    return 1.0 - PsxEaseOutBounce(1.0 - x);
-}
-
-// Eases t (0..1) with the given curve (PsxLightFalloff value); returns 0..1
-float PsxEase(uint curve, float t)
-{
-    t = saturate(t);
-    if (curve == 0 || curve > 24)
-        return t;
-    uint family = (curve - 1) / 3;
-    uint mode = (curve - 1) % 3; // 0 = In, 1 = Out, 2 = InOut
-    bool firstHalf = t < 0.5;
-    float x = mode == 0 ? t : mode == 1 ? 1.0 - t : (firstHalf ? 2.0 * t : 2.0 - 2.0 * t);
-    float e = PsxEaseIn(family, x);
-    return mode == 0 ? e : mode == 1 ? 1.0 - e : (firstHalf ? e * 0.5 : 1.0 - e * 0.5);
-}
-
-// Light attenuation for a normalized distance or cone position t (0 = full brightness, 1 = edge): 1 - ease(t)
+// Light attenuation for a normalized distance or cone position t (0 = full brightness, 1 = edge).
+// curve: 0 = linear (1 - t), 1 = quadratic ((1 - t)^2), see PsxLightFalloff
 float PsxFalloff(uint curve, float t)
 {
-    return saturate(1.0 - PsxEase(curve, t));
+    float u = 1.0 - saturate(t);
+    return curve == 1 ? u * u : u;
 }
 
 // Orthonormal basis around a normal. Must match PsxLightMath.BuildBasis (C#): same reference vectors, same cross product order.
@@ -369,7 +313,7 @@ float3 PsxVertexLighting(Texture2D lights, float3 worldPos, float3 worldNormal)
 
             if (type == PSX_LIGHT_SPOT)
             {
-                // E2.w = distance falloff + cone falloff * 32, E3.w = cos(angle / 2)
+                // E2.w = distance falloff + cone falloff * 2, E3.w = cos(angle / 2)
                 e3 = PsxLoadLightElement(lights, first + 3);
                 float cosToVertex = dot(-L, e2.xyz);
                 if (cosToVertex <= e3.w)
@@ -377,8 +321,8 @@ float3 PsxVertexLighting(Texture2D lights, float3 worldPos, float3 worldNormal)
 
                 // Cone position linear in angle: 0 on the axis, 1 at the cone edge
                 float conePos = acos(saturate(cosToVertex)) / max(acos(saturate(e3.w)), 0.0001);
-                factor = PsxFalloff(curve / 32, conePos);
-                curve = curve % 32;
+                factor = PsxFalloff(curve / 2, conePos);
+                curve = curve % 2;
             }
             else if (type == PSX_LIGHT_AREA)
             {

@@ -59,72 +59,16 @@ public enum PsxAreaLightShape
 }
 
 /// <summary>
-/// Light falloff curve, based on Robert Penner's easing equations (MIT).
-/// Attenuation is <c>1 - ease(distance / range)</c>: "In" curves stay bright and cut off late (hard edge),
-/// "Out" curves fade early with a long dim tail (soft), "InOut" curves fade smoothly.
-/// Values are written to the shader as integers (0–24) and must stay below 32 (spot cone packing).
-/// Back and Elastic are intentionally excluded since they overshoot below 0 and above 1.
+/// Light falloff curve. Attenuation over the normalized distance (or spot cone position) t, from 1 at the light to 0 at the edge.
+/// Values are written to the shader as integers.
 /// </summary>
 public enum PsxLightFalloff
 {
-    /// <summary>Linear fade from full brightness to zero at range.</summary>
+    /// <summary>Linear fade: 1 - t.</summary>
     [EditorDisplay(null, "Linear")] Linear = 0,
 
-    /// <summary>easeInSine</summary>
-    [EditorDisplay(null, "Sine (hard edge)")] InSine = 1,
-    /// <summary>easeOutSine</summary>
-    [EditorDisplay(null, "Sine (soft)")] OutSine = 2,
-    /// <summary>easeInOutSine</summary>
-    [EditorDisplay(null, "Sine (smooth)")] InOutSine = 3,
-
-    /// <summary>easeInQuad</summary>
-    [EditorDisplay(null, "Quad (hard edge)")] InQuad = 4,
-    /// <summary>easeOutQuad</summary>
-    [EditorDisplay(null, "Quad (soft)")] OutQuad = 5,
-    /// <summary>easeInOutQuad</summary>
-    [EditorDisplay(null, "Quad (smooth)")] InOutQuad = 6,
-
-    /// <summary>easeInCubic</summary>
-    [EditorDisplay(null, "Cubic (hard edge)")] InCubic = 7,
-    /// <summary>easeOutCubic</summary>
-    [EditorDisplay(null, "Cubic (soft)")] OutCubic = 8,
-    /// <summary>easeInOutCubic</summary>
-    [EditorDisplay(null, "Cubic (smooth)")] InOutCubic = 9,
-
-    /// <summary>easeInQuart</summary>
-    [EditorDisplay(null, "Quart (hard edge)")] InQuart = 10,
-    /// <summary>easeOutQuart</summary>
-    [EditorDisplay(null, "Quart (soft)")] OutQuart = 11,
-    /// <summary>easeInOutQuart</summary>
-    [EditorDisplay(null, "Quart (smooth)")] InOutQuart = 12,
-
-    /// <summary>easeInQuint</summary>
-    [EditorDisplay(null, "Quint (hard edge)")] InQuint = 13,
-    /// <summary>easeOutQuint</summary>
-    [EditorDisplay(null, "Quint (soft)")] OutQuint = 14,
-    /// <summary>easeInOutQuint</summary>
-    [EditorDisplay(null, "Quint (smooth)")] InOutQuint = 15,
-
-    /// <summary>easeInExpo</summary>
-    [EditorDisplay(null, "Expo (hard edge)")] InExpo = 16,
-    /// <summary>easeOutExpo</summary>
-    [EditorDisplay(null, "Expo (soft)")] OutExpo = 17,
-    /// <summary>easeInOutExpo</summary>
-    [EditorDisplay(null, "Expo (smooth)")] InOutExpo = 18,
-
-    /// <summary>easeInCirc</summary>
-    [EditorDisplay(null, "Circ (hard edge)")] InCirc = 19,
-    /// <summary>easeOutCirc</summary>
-    [EditorDisplay(null, "Circ (soft)")] OutCirc = 20,
-    /// <summary>easeInOutCirc</summary>
-    [EditorDisplay(null, "Circ (smooth)")] InOutCirc = 21,
-
-    /// <summary>easeInBounce</summary>
-    [EditorDisplay(null, "Bounce (hard edge)")] InBounce = 22,
-    /// <summary>easeOutBounce</summary>
-    [EditorDisplay(null, "Bounce (soft)")] OutBounce = 23,
-    /// <summary>easeInOutBounce</summary>
-    [EditorDisplay(null, "Bounce (smooth)")] InOutBounce = 24,
+    /// <summary>Quadratic fade: (1 - t)^2. Fades faster near the light, with a long soft tail.</summary>
+    [EditorDisplay(null, "Quadratic")] Quadratic = 1,
 }
 
 /// <summary>

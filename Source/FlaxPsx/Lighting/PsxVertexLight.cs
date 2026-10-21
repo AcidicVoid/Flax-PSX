@@ -6,7 +6,7 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 
 /// <summary>
 /// Base class for Flax-PSX vertex lights. These actors are not engine lights: they only carry
-/// parameters, which are packed into the vertex light data texture and evaluated by PSX materials.
+/// parameters, which are packed into the vertex light data buffer and evaluated by PSX materials.
 /// </summary>
 public abstract class PsxVertexLight : Actor
 {
@@ -20,7 +20,7 @@ public abstract class PsxVertexLight : Actor
     private float _animationStrength = 1.0f;
 
     /// <summary>
-    /// Light type, written to the <c>type</c> field of the light data texture.
+    /// Light type, written to the <c>type</c> field of the light data buffer.
     /// </summary>
     public abstract PsxLightType LightType { get; }
 

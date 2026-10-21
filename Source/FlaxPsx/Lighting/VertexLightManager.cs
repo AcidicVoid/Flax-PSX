@@ -8,31 +8,32 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 
 /// <summary>
 /// Collects all Flax-PSX vertex lights, evaluates animations, culls and sorts them,
-/// packs them into the light data texture and uploads it once per frame.
-/// The texture is bound to every material that has a <see cref="MaterialParameterName"/> parameter.
+/// packs them into the light data buffer and uploads it once per frame.
+/// The buffer is bound to every material that has a <see cref="MaterialParameterName"/> parameter.
 /// </summary>
 /// <remarks>
-/// Light data texture layout (R32G32B32A32_Float, one row, width = 1 + 4 * cap):
+/// Light data buffer layout (typed buffer, R32G32B32A32_Float, 1 + 4 * cap elements; HLSL: Buffer&lt;float4&gt;):
 /// <list type="bullet">
-/// <item>Texel 0 (header): x = light count, yzw = ambient colour.</item>
-/// <item>Light i starts at texel 1 + 4 * i:</item>
-/// <item>T0: position.xyz, type</item>
-/// <item>T1: colour.rgb (premultiplied by brightness and animation), 1 / range</item>
-/// <item>T2: direction.xyz, falloff (spot: distance falloff + cone falloff * 32)</item>
-/// <item>T3: shape (area only: 1 = rectangle, 2 = circle), halfSize.x, halfSize.y, angle (spot: cos(angle / 2), area: roll)</item>
+/// <item>Element 0 (header): x = light count, yzw = ambient colour.</item>
+/// <item>Light i starts at element 1 + 4 * i:</item>
+/// <item>E0: position.xyz, 1 / range (0 = no range limit, directional)</item>
+/// <item>E1: colour.rgb (premultiplied by brightness and animation), type</item>
+/// <item>E2: direction.xyz, falloff (spot: distance falloff + cone falloff * 32)</item>
+/// <item>E3: shape (area only: 1 = rectangle, 2 = circle), halfSize.x, halfSize.y, angle (spot: cos(angle / 2), area: roll)</item>
 /// </list>
+/// The range test only needs E0, so the shader can skip loading E1–E3 for lights out of range.
 /// </remarks>
 public static class VertexLightManager
 {
     /// <summary>
-    /// Name of the material parameter receiving the light data texture. Must be the material's first parameter.
+    /// Name of the material parameter receiving the light data buffer. Must be the material's first parameter (GPU Buffer).
     /// </summary>
     public const string MaterialParameterName = "PsxLightData";
 
     /// <summary>
-    /// Texels per light in the light data texture.
+    /// float4 elements per light in the light data buffer.
     /// </summary>
-    public const int TexelsPerLight = 4;
+    public const int ElementsPerLight = 4;
 
     /// <summary>
     /// Range margin used for frustum culling (+5%).
@@ -56,15 +57,15 @@ public static class VertexLightManager
     private static float[] _keys = new float[64];
     private static Float4[] _data = Array.Empty<Float4>();
     private static Asset[] _assetBuffer;
-    private static GPUTexture _texture;
+    private static GPUBuffer _buffer;
     private static RenderTask _task;
     private static PsxVertexLightCap _cap = PsxVertexLightCap.Lights64;
-    private static bool _textureDirty = true;
+    private static bool _bufferDirty = true;
     private static float _nextMaterialScan;
     private static bool _initialized;
 
     /// <summary>
-    /// Maximum number of lights uploaded per frame. Changing it reallocates the light data texture.
+    /// Maximum number of lights uploaded per frame. Changing it reallocates the light data buffer.
     /// </summary>
     public static PsxVertexLightCap Cap
     {
@@ -74,18 +75,18 @@ public static class VertexLightManager
             if (_cap == value)
                 return;
             _cap = value;
-            _textureDirty = true;
+            _bufferDirty = true;
         }
     }
 
     /// <summary>
     /// Enables frustum culling against the reference view. Disable it while two or more cameras are active,
-    /// since the light data texture is shared by every view in a frame.
+    /// since the light data buffer is shared by every view in a frame.
     /// </summary>
     public static bool CullingEnabled { get; set; } = true;
 
     /// <summary>
-    /// Ambient light colour, sent through the header texel.
+    /// Ambient light colour, sent through the header element.
     /// </summary>
     public static Color Ambient { get; set; } = new Color(0.2f, 0.2f, 0.2f, 1.0f);
 
@@ -101,9 +102,9 @@ public static class VertexLightManager
     public static ReferenceViewDelegate ReferenceViewProvider { get; set; }
 
     /// <summary>
-    /// The light data texture (null until the first frame after initialization).
+    /// The light data buffer (null until the first frame after initialization).
     /// </summary>
-    public static GPUTexture LightDataTexture => _texture;
+    public static GPUBuffer LightDataBuffer => _buffer;
 
     /// <summary>
     /// All registered (enabled) vertex lights.
@@ -111,7 +112,7 @@ public static class VertexLightManager
     public static IReadOnlyList<PsxVertexLight> Lights => _lights;
 
     /// <summary>
-    /// Materials the light data texture is bound to.
+    /// Materials the light data buffer is bound to.
     /// </summary>
     public static IReadOnlyList<MaterialBase> Materials => _materials;
 
@@ -142,7 +143,7 @@ public static class VertexLightManager
 
         Level.SceneLoaded += OnSceneLoaded;
 
-        _textureDirty = true;
+        _bufferDirty = true;
         _nextMaterialScan = 0.0f;
     }
 
@@ -164,23 +165,23 @@ public static class VertexLightManager
             FlaxEngine.Object.Destroy(ref _task);
         }
 
-        // Unbind the texture from all materials before releasing it
+        // Unbind the buffer from all materials before releasing it
         for (int i = 0; i < _materials.Count; i++)
         {
             var material = _materials[i];
             var parameter = material ? material.GetParameter(MaterialParameterName) : null;
-            if (parameter != null && parameter.Value as GPUTexture == _texture)
+            if (parameter != null && parameter.Value as GPUBuffer == _buffer)
                 parameter.Value = null;
         }
         _materials.Clear();
         _reportedMaterials.Clear();
 
-        if (_texture)
+        if (_buffer)
         {
-            _texture.ReleaseGPU();
-            FlaxEngine.Object.Destroy(ref _texture);
+            _buffer.ReleaseGPU();
+            FlaxEngine.Object.Destroy(ref _buffer);
         }
-        _textureDirty = true;
+        _bufferDirty = true;
         VisibleLightCount = 0;
         UploadedLightCount = 0;
     }
@@ -203,7 +204,7 @@ public static class VertexLightManager
     }
 
     /// <summary>
-    /// Explicitly binds the light data texture to a material (e.g. a material that isn't loaded yet during the automatic scan).
+    /// Explicitly binds the light data buffer to a material (e.g. a material that isn't loaded yet during the automatic scan).
     /// Base materials are found automatically; material instances inherit the binding unless they override the parameter.
     /// </summary>
     /// <param name="material">The material.</param>
@@ -227,12 +228,12 @@ public static class VertexLightManager
             return;
         _materials.Remove(material);
         var parameter = material.GetParameter(MaterialParameterName);
-        if (parameter != null && parameter.Value as GPUTexture == _texture)
+        if (parameter != null && parameter.Value as GPUBuffer == _buffer)
             parameter.Value = null;
     }
 
     /// <summary>
-    /// Scans all loaded materials and binds the light data texture to those with a <see cref="MaterialParameterName"/> parameter.
+    /// Scans all loaded materials and binds the light data buffer to those with a <see cref="MaterialParameterName"/> parameter.
     /// Runs automatically on scene load and every <see cref="MaterialScanInterval"/> seconds.
     /// </summary>
     public static void ScanMaterials()
@@ -271,9 +272,9 @@ public static class VertexLightManager
 
     private static void OnRender(RenderTask task, GPUContext context)
     {
-        if (_textureDirty && !CreateTexture())
+        if (_bufferDirty && !CreateBuffer())
             return;
-        if (!_texture)
+        if (!_buffer)
             return;
 
         float now = Time.TimeSinceStartup;
@@ -283,37 +284,38 @@ public static class VertexLightManager
             ScanMaterials();
         }
 
+        // Game time is paused in the editor's edit mode, so animate on real time there
+        float time = Engine.IsPlayMode ? Time.GameTime : Time.TimeSinceStartup;
         int count = CollectLights();
-        Pack(count, Time.GameTime);
-        Upload(context);
+        UploadedLightCount = count;
+        Pack(count, time);
+        Upload(context, count);
     }
 
-    private static bool CreateTexture()
+    private static bool CreateBuffer()
     {
-        _textureDirty = false;
+        _bufferDirty = false;
 
-        if (_texture)
+        if (_buffer)
         {
-            _texture.ReleaseGPU();
-            FlaxEngine.Object.Destroy(ref _texture);
+            _buffer.ReleaseGPU();
+            FlaxEngine.Object.Destroy(ref _buffer);
         }
 
-        int width = 1 + TexelsPerLight * (int)_cap;
-        var desc = GPUTextureDescription.New2D(width, 1, 1, PixelFormat.R32G32B32A32_Float, GPUTextureFlags.ShaderResource);
-        _texture = GPUDevice.Instance.CreateTexture("PsxVertexLightData");
-        if (_texture.Init(ref desc))
+        // Typed buffer matching the material's generated 'Buffer' (= Buffer<float4>) declaration; Default usage, updated via UpdateBuffer
+        int elements = 1 + ElementsPerLight * (int)_cap;
+        var desc = GPUBufferDescription.Typed(elements, PixelFormat.R32G32B32A32_Float);
+        _buffer = GPUDevice.Instance.CreateBuffer("PsxVertexLightData");
+        if (_buffer.Init(ref desc))
         {
-            Debug.LogError("[VertexLightManager] Failed to create the light data texture.");
-            FlaxEngine.Object.Destroy(ref _texture);
+            Debug.LogError("[VertexLightManager] Failed to create the light data buffer.");
+            FlaxEngine.Object.Destroy(ref _buffer);
             return false;
         }
 
-        // Regular (shader resource only) textures start with 0 resident mips, which makes materials skip binding them
-        _texture.ResidentMipLevels = 1;
+        _data = new Float4[elements];
 
-        _data = new Float4[width];
-
-        // Point all known materials to the new texture
+        // Point all known materials to the new buffer
         for (int i = 0; i < _materials.Count; i++)
             BindMaterial(_materials[i]);
         return true;
@@ -328,23 +330,23 @@ public static class VertexLightManager
             return false;
         if (!ValidateMaterial(material))
             return false;
-        if (_texture && parameter.Value as GPUTexture != _texture)
-            parameter.Value = _texture;
+        if (_buffer && parameter.Value as GPUBuffer != _buffer)
+            parameter.Value = _buffer;
         return true;
     }
 
     /// <summary>
-    /// The shader accesses the texture by its generated name (In1), so the parameter must be the material's first one.
+    /// The shader accesses the buffer by its generated name (In1), so the parameter must be the material's first one.
     /// </summary>
     private static bool ValidateMaterial(MaterialBase material)
     {
         var parameters = material.Parameters;
         bool valid = parameters != null && parameters.Length > 0 &&
                      parameters[0].Name == MaterialParameterName &&
-                     parameters[0].ParameterType == MaterialParameterType.GPUTexture;
+                     parameters[0].ParameterType == MaterialParameterType.GPUBuffer;
         if (!valid && _reportedMaterials.Add(material.ID))
         {
-            Debug.LogError($"[VertexLightManager] Material '{material.Path}': '{MaterialParameterName}' must be the first parameter and of type GPU Texture. Vertex lighting is disabled for this material.");
+            Debug.LogError($"[VertexLightManager] Material '{material.Path}': '{MaterialParameterName}' must be the first parameter and of type GPU Buffer. Vertex lighting is disabled for this material.");
         }
         return valid;
     }
@@ -447,7 +449,7 @@ public static class VertexLightManager
         for (int i = 0; i < count; i++)
         {
             var light = _candidates[i];
-            int t = 1 + i * TexelsPerLight;
+            int t = 1 + i * ElementsPerLight;
 
             float intensity = light.Brightness * PsxLightStyles.Evaluate(light, time);
             var color = light.Color;
@@ -457,14 +459,14 @@ public static class VertexLightManager
             switch (light)
             {
             case PsxDirectionalLight directional:
-                _data[t + 0] = new Float4(position, (float)PsxLightType.Directional);
-                _data[t + 1] = new Float4(colour, 0.0f);
+                _data[t + 0] = new Float4(position, 0.0f); // No range limit
+                _data[t + 1] = new Float4(colour, (float)PsxLightType.Directional);
                 _data[t + 2] = new Float4(directional.EffectiveDirection, 0.0f);
                 _data[t + 3] = Float4.Zero;
                 break;
             case PsxPointLight point:
-                _data[t + 0] = new Float4(position, (float)PsxLightType.Point);
-                _data[t + 1] = new Float4(colour, 1.0f / point.Range);
+                _data[t + 0] = new Float4(position, 1.0f / point.Range);
+                _data[t + 1] = new Float4(colour, (float)PsxLightType.Point);
                 _data[t + 2] = new Float4(0.0f, 0.0f, 0.0f, (float)(int)point.Falloff);
                 _data[t + 3] = Float4.Zero;
                 break;
@@ -472,8 +474,8 @@ public static class VertexLightManager
             {
                 float falloff = (int)spot.Falloff + (int)spot.ConeFalloff * 32;
                 float cosHalfAngle = Mathf.Cos(spot.Angle * 0.5f * Mathf.DegreesToRadians);
-                _data[t + 0] = new Float4(position, (float)PsxLightType.Spot);
-                _data[t + 1] = new Float4(colour, 1.0f / spot.Range);
+                _data[t + 0] = new Float4(position, 1.0f / spot.Range);
+                _data[t + 1] = new Float4(colour, (float)PsxLightType.Spot);
                 _data[t + 2] = new Float4(spot.EffectiveDirection, falloff);
                 _data[t + 3] = new Float4(0.0f, 0.0f, 0.0f, cosHalfAngle);
                 break;
@@ -485,14 +487,15 @@ public static class VertexLightManager
                 float roll = PsxLightMath.ComputeRoll(normal, transform.Right);
                 float shape = area.Shape == PsxAreaLightShape.Circle ? (float)PsxAreaLightShape.Circle : (float)PsxAreaLightShape.Rectangle;
                 Float2 half = area.HalfSize;
-                _data[t + 0] = new Float4(position, (float)PsxLightType.Area);
-                _data[t + 1] = new Float4(colour, 1.0f / area.Range);
+                _data[t + 0] = new Float4(position, 1.0f / area.Range);
+                _data[t + 1] = new Float4(colour, (float)PsxLightType.Area);
                 _data[t + 2] = new Float4(normal, (float)(int)area.Falloff);
                 _data[t + 3] = new Float4(shape, half.X, half.Y, roll);
                 break;
             }
             default:
-                _data[t + 0] = Float4.Zero; // Type 0 = empty slot
+                _data[t + 0] = Float4.Zero;
+                // E1.w = 0 = empty slot (PsxLightType.Empty)
                 _data[t + 1] = Float4.Zero;
                 _data[t + 2] = Float4.Zero;
                 _data[t + 3] = Float4.Zero;
@@ -501,12 +504,53 @@ public static class VertexLightManager
         }
     }
 
-    private static unsafe void Upload(GPUContext context)
+    private static unsafe void Upload(GPUContext context, int count)
     {
-        uint rowPitch = (uint)(_data.Length * sizeof(Float4));
+        // Header + used lights only; the shader never reads past the light count
+        uint size = (uint)((1 + ElementsPerLight * count) * sizeof(Float4));
         fixed (Float4* ptr = _data)
         {
-            context.UpdateTexture(_texture, 0, 0, new IntPtr(ptr), rowPitch, rowPitch);
+            context.UpdateBuffer(_buffer, new IntPtr(ptr), size, 0);
         }
+    }
+
+    // TODO: temporary debug helper, remove in step 10
+    /// <summary>
+    /// Reads the light data buffer back from the GPU on a background thread and logs its contents.
+    /// </summary>
+    public static void DebugDumpBuffer()
+    {
+        var buffer = _buffer;
+        if (!buffer)
+        {
+            Debug.LogWarning("[VertexLightManager] No light data buffer to dump.");
+            return;
+        }
+
+        // Default-usage buffers can't be downloaded on the main thread
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            if (buffer.DownloadData(out byte[] bytes) || bytes == null)
+            {
+                Debug.LogWarning("[VertexLightManager] Light data buffer readback failed.");
+                return;
+            }
+
+            var elements = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Float4>(bytes.AsSpan());
+            var header = elements[0];
+            int count = (int)header.X;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[VertexLightManager] Buffer dump: {elements.Length} elements, {count} lights, ambient = ({header.Y}, {header.Z}, {header.W})");
+            for (int i = 0; i < count && 1 + (i + 1) * ElementsPerLight <= elements.Length; i++)
+            {
+                int t = 1 + i * ElementsPerLight;
+                sb.AppendLine($"  [{i}] type = {elements[t + 1].W}, invRange = {elements[t].W}");
+                sb.AppendLine($"      E0 = {elements[t + 0]}");
+                sb.AppendLine($"      E1 = {elements[t + 1]}");
+                sb.AppendLine($"      E2 = {elements[t + 2]}");
+                sb.AppendLine($"      E3 = {elements[t + 3]}");
+            }
+            Debug.Log(sb.ToString());
+        });
     }
 }

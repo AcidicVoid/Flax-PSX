@@ -37,6 +37,32 @@ public class PsxVertexLightingSettings : Script
     [EditorOrder(30)]
     public Camera ReferenceCamera;
 
+    // TODO: temporary debug readout, remove in step 10
+
+    /// <summary>
+    /// Number of registered (enabled) vertex lights.
+    /// </summary>
+    [EditorOrder(100), EditorDisplay("Debug"), ShowInEditor, ReadOnly, NoSerialize]
+    public int RegisteredLights => VertexLightManager.Lights.Count;
+
+    /// <summary>
+    /// Number of lights that passed culling in the last frame (before applying the cap).
+    /// </summary>
+    [EditorOrder(110), EditorDisplay("Debug"), ShowInEditor, ReadOnly, NoSerialize]
+    public int VisibleLights => VertexLightManager.VisibleLightCount;
+
+    /// <summary>
+    /// Number of lights uploaded in the last frame.
+    /// </summary>
+    [EditorOrder(120), EditorDisplay("Debug"), ShowInEditor, ReadOnly, NoSerialize]
+    public int UploadedLights => VertexLightManager.UploadedLightCount;
+
+    /// <summary>
+    /// Tick to log the GPU light data buffer contents once (read back on a background thread).
+    /// </summary>
+    [EditorOrder(130), EditorDisplay("Debug"), ShowInEditor, NoSerialize]
+    public bool DumpBuffer;
+
     /// <inheritdoc />
     public override void OnEnable()
     {
@@ -48,6 +74,12 @@ public class PsxVertexLightingSettings : Script
     {
         // Cheap assignments; keeps editor and script changes in sync
         Apply();
+
+        if (DumpBuffer)
+        {
+            DumpBuffer = false;
+            VertexLightManager.DebugDumpBuffer();
+        }
     }
 
     /// <summary>

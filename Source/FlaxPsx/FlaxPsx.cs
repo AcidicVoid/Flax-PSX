@@ -33,14 +33,19 @@ namespace AcidicVoid.FlaxPsx
         {
             base.Initialize();
             Debug.Log("Initializing Flax PSX plugin");
+#if !FLAX_EDITOR
+            // In the editor, the editor plugin owns the manager (game plugins only run in play mode)
             VertexLightManager.Initialize();
+#endif
         }
 
         /// <inheritdoc />
         public override void Deinitialize()
         {
             Debug.Log("Plugin cleanup!");
+#if !FLAX_EDITOR
             VertexLightManager.Shutdown();
+#endif
             base.Deinitialize();
         }
     }

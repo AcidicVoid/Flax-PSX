@@ -35,6 +35,9 @@ namespace AcidicVoid.FlaxPsx
 
             // Vertex lights: cull/sort against the editor viewport camera in edit mode
             VertexLightManager.ReferenceViewProvider = EditorViewProvider;
+
+            // Vertex lights: the editor owns the manager so it runs in edit and play mode
+            VertexLightManager.Initialize();
         }
 
         /// <inheritdoc />
@@ -42,6 +45,7 @@ namespace AcidicVoid.FlaxPsx
         {
             if (VertexLightManager.ReferenceViewProvider == EditorViewProvider)
                 VertexLightManager.ReferenceViewProvider = null;
+            VertexLightManager.Shutdown();
 
             if (_button != null)
             {

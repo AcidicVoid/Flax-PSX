@@ -158,3 +158,19 @@ public enum PsxLightAnimation
     /// <summary>Custom pattern string ('a' = dark, 'm' = normal, 'z' = double bright).</summary>
     [EditorDisplay(null, "Custom")] Custom = 12,
 }
+
+/// <summary>
+/// Maximum number of vertex lights uploaded per frame. Only sets the light data texture size;
+/// shader cost scales with the lights actually uploaded.
+/// </summary>
+public enum PsxVertexLightCap
+{
+    /// <summary>Up to 32 lights.</summary>
+    [EditorDisplay(null, "32")] Lights32 = 32,
+    /// <summary>Up to 64 lights (default).</summary>
+    [EditorDisplay(null, "64")] Lights64 = 64,
+    /// <summary>Up to 128 lights.</summary>
+    [EditorDisplay(null, "128")] Lights128 = 128,
+    /// <summary>Up to 256 lights.</summary>
+    [EditorDisplay(null, "256")] Lights256 = 256,
+}

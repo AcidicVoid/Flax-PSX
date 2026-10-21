@@ -15,6 +15,7 @@ public abstract class PsxVertexLight : Actor
     private Color _color = FlaxEngine.Color.White;
     private PsxLightAnimation _animation = PsxLightAnimation.Normal;
     private string _customPattern = "m";
+    private float[] _customPatternValues = PsxLightStyles.Parse("m");
     private float _animationSpeed = 1.0f;
     private float _animationStrength = 1.0f;
 
@@ -72,8 +73,17 @@ public abstract class PsxVertexLight : Actor
     public string CustomPattern
     {
         get => _customPattern;
-        set => _customPattern = value ?? string.Empty;
+        set
+        {
+            _customPattern = value ?? string.Empty;
+            _customPatternValues = PsxLightStyles.Parse(_customPattern);
+        }
     }
+
+    /// <summary>
+    /// Parsed CustomPattern (brightness multipliers), updated whenever CustomPattern changes.
+    /// </summary>
+    internal float[] CustomPatternValues => _customPatternValues;
 
     /// <summary>
     /// Animation speed multiplier. 1 = original Quake timing (10 steps per second).
@@ -96,6 +106,20 @@ public abstract class PsxVertexLight : Actor
     }
 
     private bool IsCustomAnimation => _animation == PsxLightAnimation.Custom;
+
+    /// <inheritdoc />
+    public override void OnEnable()
+    {
+        base.OnEnable();
+        VertexLightManager.Register(this);
+    }
+
+    /// <inheritdoc />
+    public override void OnDisable()
+    {
+        VertexLightManager.Unregister(this);
+        base.OnDisable();
+    }
 
     /// <summary>
     /// Sets the actor's rotation from a direction vector. Ignores (near) zero vectors.
@@ -139,9 +163,7 @@ public abstract class PsxVertexLight : Actor
     /// </summary>
     protected static void GetPerpendicularAxes(Float3 direction, out Float3 right, out Float3 up)
     {
-        Float3 reference = Mathf.Abs(direction.Y) < 0.999f ? Float3.Up : Float3.Right;
-        right = Float3.Cross(reference, direction).Normalized;
-        up = Float3.Cross(direction, right);
+        PsxLightMath.BuildBasis(direction, out right, out up);
     }
 
     /// <inheritdoc />

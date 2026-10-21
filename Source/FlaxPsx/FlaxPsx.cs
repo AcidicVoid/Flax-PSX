@@ -1,5 +1,6 @@
 using System;
 using FlaxEngine;
+using AcidicVoid.FlaxPsx.Lighting;
 
 namespace AcidicVoid.FlaxPsx
 {
@@ -32,12 +33,14 @@ namespace AcidicVoid.FlaxPsx
         {
             base.Initialize();
             Debug.Log("Initializing Flax PSX plugin");
+            VertexLightManager.Initialize();
         }
 
         /// <inheritdoc />
         public override void Deinitialize()
         {
             Debug.Log("Plugin cleanup!");
+            VertexLightManager.Shutdown();
             base.Deinitialize();
         }
     }

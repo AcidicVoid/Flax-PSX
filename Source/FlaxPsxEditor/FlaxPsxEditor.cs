@@ -2,6 +2,7 @@ using System;
 using FlaxEditor;
 using FlaxEditor.GUI;
 using FlaxEngine;
+using AcidicVoid.FlaxPsx.Lighting;
 
 namespace AcidicVoid.FlaxPsx
 {
@@ -12,6 +13,7 @@ namespace AcidicVoid.FlaxPsx
 	public class FlaxPsxEditor : EditorPlugin
     {
         private ToolStripButton _button;
+        private static readonly VertexLightManager.ReferenceViewDelegate EditorViewProvider = TryGetEditorView;
 
         /// <inheritdoc />
         public override Type GamePluginType => typeof(FlaxPsx);
@@ -27,8 +29,20 @@ namespace AcidicVoid.FlaxPsx
 */
 
         /// <inheritdoc />
+        public override void InitializeEditor()
+        {
+            base.InitializeEditor();
+
+            // Vertex lights: cull/sort against the editor viewport camera in edit mode
+            VertexLightManager.ReferenceViewProvider = EditorViewProvider;
+        }
+
+        /// <inheritdoc />
         public override void Deinitialize()
         {
+            if (VertexLightManager.ReferenceViewProvider == EditorViewProvider)
+                VertexLightManager.ReferenceViewProvider = null;
+
             if (_button != null)
             {
                 _button.Dispose();
@@ -36,6 +50,23 @@ namespace AcidicVoid.FlaxPsx
             }
 
             base.Deinitialize();
+        }
+
+        /// <summary>
+        /// Reference view for vertex light culling: the editor viewport camera while not in play mode.
+        /// </summary>
+        private static bool TryGetEditorView(out Vector3 position, out BoundingFrustum frustum)
+        {
+            position = Vector3.Zero;
+            frustum = default;
+            if (FlaxEditor.Editor.IsPlayMode)
+                return false;
+            var viewport = FlaxEditor.Editor.Instance?.Windows?.EditWin?.Viewport;
+            if (viewport == null || viewport.Task == null)
+                return false;
+            position = viewport.ViewPosition;
+            frustum = viewport.ViewFrustum;
+            return true;
         }
     }
 }

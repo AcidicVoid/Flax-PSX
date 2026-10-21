@@ -8,8 +8,8 @@
 #ifndef __INC_VL__
 #define __INC_VL__
 
-#include "./Flax/Lighting.hlsl"
-#include "./Flax/LightingCommon.hlsl"
+#include "./Flax/Lighting/Lighting.hlsl"
+#include "./Flax/Lighting/LightingCommon.hlsl"
 #include "./Flax/MaterialCommon.hlsl"
 #include "./Flax/GBufferCommon.hlsl"
 

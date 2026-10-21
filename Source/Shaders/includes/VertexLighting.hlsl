@@ -175,7 +175,7 @@ float3 VL_GetAllLighting(float3 worldPos, float3 viewPos, float3 worldNormal, fl
 // Layout (one row, one float4 per texel):
 //   texel 0:          x = light count, yzw = ambient colour
 //   light i, texel 1 + 4 * i + n:
-//     E0: position.xyz, 1 / range (0 = no range limit)
+//     E0: position.xyz, 1 / range (0 = no range limit; area: 1 / (range + shape radius))
 //     E1: colour.rgb (premultiplied), type (1 = directional, 2 = point, 3 = spot, 4 = area)
 //     E2: direction.xyz, falloff
 //     E3: area: shape, halfSize.xy / spot: w = cos(angle / 2), area: w = roll
@@ -194,8 +194,11 @@ float4 PsxLoadLightElement(Texture2D lights, uint index)
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Falloff curves: Robert Penner's easing equations (MIT), in the common closed forms (easings.net).
-// Index = PsxLightFalloff value (0 = Linear, then In/Out/InOut for Sine, Quad, Cubic, Quart, Quint, Expo, Circ, Bounce).
+// Index = PsxLightFalloff value: 0 = Linear, then In/Out/InOut for Sine, Quad, Cubic, Quart, Quint, Expo, Circ, Bounce.
 // Back and Elastic are excluded on purpose (they overshoot below 0 and above 1).
+// Only the "In" curve of each family is implemented; Out and InOut are derived from it:
+//   Out(t) = 1 - In(1 - t),  InOut(t) = t < 0.5 ? In(2t) / 2 : 1 - In(2 - 2t) / 2
+// This is exact for all families used here and keeps the shader small (one curve evaluation per call).
 // ---------------------------------------------------------------------------------------------------------------------
 
 float PsxEaseOutBounce(float t)
@@ -218,57 +221,75 @@ float PsxEaseOutBounce(float t)
     return n1 * t * t + 0.984375;
 }
 
-// Eases t (0..1) with the given curve; returns 0..1
+// "In" curve of a family (0 = Sine, 1 = Quad, 2 = Cubic, 3 = Quart, 4 = Quint, 5 = Expo, 6 = Circ, 7 = Bounce)
+float PsxEaseIn(uint family, float x)
+{
+    x = saturate(x);
+    if (family == 0)
+        return 1.0 - cos(x * PI * 0.5);
+    if (family <= 4)
+        return pow(x, family + 1.0);
+    if (family == 5)
+        return x <= 0.0 ? 0.0 : exp2(10.0 * x - 10.0);
+    if (family == 6)
+        return 1.0 - sqrt(saturate(1.0 - x * x));
+    return 1.0 - PsxEaseOutBounce(1.0 - x);
+}
+
+// Eases t (0..1) with the given curve (PsxLightFalloff value); returns 0..1
 float PsxEase(uint curve, float t)
 {
     t = saturate(t);
-    float u = 1.0 - t;      // For "Out" curves
-    float a = 2.0 * t;      // For the first half of "InOut" curves
-    float b = 2.0 - a;      // For the second half of "InOut" curves (= -2t + 2)
+    if (curve == 0 || curve > 24)
+        return t;
+    uint family = (curve - 1) / 3;
+    uint mode = (curve - 1) % 3; // 0 = In, 1 = Out, 2 = InOut
     bool firstHalf = t < 0.5;
-    switch (curve)
-    {
-    // Sine
-    case 1: return 1.0 - cos(t * PI * 0.5);
-    case 2: return sin(t * PI * 0.5);
-    case 3: return -(cos(PI * t) - 1.0) * 0.5;
-    // Quad
-    case 4: return t * t;
-    case 5: return 1.0 - u * u;
-    case 6: return firstHalf ? 2.0 * t * t : 1.0 - b * b * 0.5;
-    // Cubic
-    case 7: return t * t * t;
-    case 8: return 1.0 - u * u * u;
-    case 9: return firstHalf ? 4.0 * t * t * t : 1.0 - b * b * b * 0.5;
-    // Quart
-    case 10: return t * t * t * t;
-    case 11: return 1.0 - u * u * u * u;
-    case 12: return firstHalf ? 8.0 * t * t * t * t : 1.0 - b * b * b * b * 0.5;
-    // Quint
-    case 13: return t * t * t * t * t;
-    case 14: return 1.0 - u * u * u * u * u;
-    case 15: return firstHalf ? 16.0 * t * t * t * t * t : 1.0 - b * b * b * b * b * 0.5;
-    // Expo
-    case 16: return t <= 0.0 ? 0.0 : exp2(10.0 * t - 10.0);
-    case 17: return t >= 1.0 ? 1.0 : 1.0 - exp2(-10.0 * t);
-    case 18: return t <= 0.0 ? 0.0 : t >= 1.0 ? 1.0 : firstHalf ? exp2(20.0 * t - 10.0) * 0.5 : (2.0 - exp2(-20.0 * t + 10.0)) * 0.5;
-    // Circ
-    case 19: return 1.0 - sqrt(saturate(1.0 - t * t));
-    case 20: return sqrt(saturate(1.0 - u * u));
-    case 21: return firstHalf ? (1.0 - sqrt(saturate(1.0 - a * a))) * 0.5 : (sqrt(saturate(1.0 - b * b)) + 1.0) * 0.5;
-    // Bounce
-    case 22: return 1.0 - PsxEaseOutBounce(u);
-    case 23: return PsxEaseOutBounce(t);
-    case 24: return firstHalf ? (1.0 - PsxEaseOutBounce(1.0 - a)) * 0.5 : (1.0 + PsxEaseOutBounce(a - 1.0)) * 0.5;
-    // Linear (0) and unknown values
-    default: return t;
-    }
+    float x = mode == 0 ? t : mode == 1 ? 1.0 - t : (firstHalf ? 2.0 * t : 2.0 - 2.0 * t);
+    float e = PsxEaseIn(family, x);
+    return mode == 0 ? e : mode == 1 ? 1.0 - e : (firstHalf ? e * 0.5 : 1.0 - e * 0.5);
 }
 
 // Light attenuation for a normalized distance or cone position t (0 = full brightness, 1 = edge): 1 - ease(t)
 float PsxFalloff(uint curve, float t)
 {
     return saturate(1.0 - PsxEase(curve, t));
+}
+
+// Orthonormal basis around a normal. Must match PsxLightMath.BuildBasis (C#): same reference vectors, same cross product order.
+void PsxBuildBasis(float3 n, out float3 right, out float3 up)
+{
+    float3 reference = abs(n.y) < 0.999 ? float3(0, 1, 0) : float3(1, 0, 0);
+    right = normalize(cross(reference, n));
+    up = cross(n, right);
+}
+
+#define PSX_AREA_SHAPE_CIRCLE 2
+
+// Closest point to p on an area light's shape (rectangle or circle in the plane through center with normal n).
+// e3 = shape, halfSize.x (circle: radius), halfSize.y, roll (see PsxLightMath.ComputeRoll)
+float3 PsxClosestPointOnArea(float3 center, float3 n, float4 e3, float3 p)
+{
+    float3 basisRight, basisUp;
+    PsxBuildBasis(n, basisRight, basisUp);
+    float sinRoll, cosRoll;
+    sincos(e3.w, sinRoll, cosRoll);
+    float3 right = cosRoll * basisRight + sinRoll * basisUp;
+    float3 up = cross(n, right);
+
+    float3 d = p - center;
+    float2 local = float2(dot(d, right), dot(d, up));
+    if ((uint)(e3.x + 0.5) == PSX_AREA_SHAPE_CIRCLE)
+    {
+        float len = length(local);
+        if (len > e3.y)
+            local *= e3.y / len;
+    }
+    else
+    {
+        local = clamp(local, -e3.yz, e3.yz);
+    }
+    return center + right * local.x + up * local.y;
 }
 
 // Returns ambient + the sum of all vertex lights for a vertex (world space position and normal).
@@ -307,42 +328,71 @@ float3 PsxVertexLighting(Texture2D lights, float3 worldPos, float3 worldNormal)
         uint type = (uint)(e1.w + 0.5);
         float4 e2 = PsxLoadLightElement(lights, first + 2);
 
+        // Each type sets the light direction L, a type specific factor and the distance falloff input;
+        // the falloff curve is then evaluated once for all types
+        float3 L = N;
+        float factor = 1.0;
+        uint curve = 0;
+        float t = 0.0;
+
         if (type == PSX_LIGHT_DIRECTIONAL)
         {
-            // E2.xyz = direction the light shines towards
-            float NdotL = saturate(dot(N, -e2.xyz));
-            lighting += e1.rgb * NdotL;
+            // E2.xyz = direction the light shines towards; no distance falloff
+            L = -e2.xyz;
         }
-        else if (type == PSX_LIGHT_POINT)
+        else if (type == PSX_LIGHT_POINT || type == PSX_LIGHT_SPOT || type == PSX_LIGHT_AREA)
         {
-            // E2.w = distance falloff curve
-            float dist = sqrt(distSq);
-            float3 L = dist > 0.0001 ? toLight / dist : N;
-            float NdotL = saturate(dot(N, L));
-            float attenuation = PsxFalloff((uint)(e2.w + 0.5), dist * invRange);
-            lighting += e1.rgb * (NdotL * attenuation);
-        }
-        else if (type == PSX_LIGHT_SPOT)
-        {
-            // E2.xyz = spot direction, E2.w = distance falloff + cone falloff * 32, E3.w = cos(angle / 2)
-            float dist = sqrt(distSq);
-            float3 L = dist > 0.0001 ? toLight / dist : -e2.xyz;
-            float cosToVertex = dot(-L, e2.xyz);
-            float cosHalfAngle = PsxLoadLightElement(lights, first + 3).w;
-            if (cosToVertex <= cosHalfAngle)
+            float3 lightPos = e0.xyz;
+            float lightInvRange = invRange;
+            float4 e3 = float4(0, 0, 0, 0);
+
+            if (type == PSX_LIGHT_AREA)
+            {
+                // One-sided: only vertices in front of the shape (E2.xyz = shape normal) receive light
+                if (dot(worldPos - e0.xyz, e2.xyz) <= 0.0)
+                    continue;
+
+                // E0.w covers range + shape radius; the falloff is measured from the closest point on the shape
+                e3 = PsxLoadLightElement(lights, first + 3);
+                float radius = (uint)(e3.x + 0.5) == PSX_AREA_SHAPE_CIRCLE ? e3.y : length(e3.yz);
+                lightInvRange = 1.0 / max(1.0 / invRange - radius, 1.0);
+                lightPos = PsxClosestPointOnArea(e0.xyz, e2.xyz, e3, worldPos);
+            }
+
+            float3 toLightPos = lightPos - worldPos;
+            float dist = length(toLightPos);
+            t = dist * lightInvRange;
+            if (t >= 1.0)
                 continue;
+            L = dist > 0.0001 ? toLightPos / dist : (type == PSX_LIGHT_POINT ? N : -e2.xyz);
+            curve = (uint)(e2.w + 0.5);
 
-            uint falloffs = (uint)(e2.w + 0.5);
-            uint distanceCurve = falloffs % 32;
-            uint coneCurve = falloffs / 32;
+            if (type == PSX_LIGHT_SPOT)
+            {
+                // E2.w = distance falloff + cone falloff * 32, E3.w = cos(angle / 2)
+                e3 = PsxLoadLightElement(lights, first + 3);
+                float cosToVertex = dot(-L, e2.xyz);
+                if (cosToVertex <= e3.w)
+                    continue;
 
-            // Cone position linear in angle: 0 on the axis, 1 at the cone edge
-            float conePos = acos(saturate(cosToVertex)) / max(acos(saturate(cosHalfAngle)), 0.0001);
-            float NdotL = saturate(dot(N, L));
-            float attenuation = PsxFalloff(distanceCurve, dist * invRange) * PsxFalloff(coneCurve, conePos);
-            lighting += e1.rgb * (NdotL * attenuation);
+                // Cone position linear in angle: 0 on the axis, 1 at the cone edge
+                float conePos = acos(saturate(cosToVertex)) / max(acos(saturate(e3.w)), 0.0001);
+                factor = PsxFalloff(curve / 32, conePos);
+                curve = curve % 32;
+            }
+            else if (type == PSX_LIGHT_AREA)
+            {
+                // Emitter facing: light leaves the shape along its normal
+                factor = saturate(dot(e2.xyz, -L));
+            }
         }
-        // TODO: area (step 7)
+        else
+        {
+            continue;
+        }
+
+        float NdotL = saturate(dot(N, L));
+        lighting += e1.rgb * (NdotL * factor * PsxFalloff(curve, t));
     }
 
     return lighting;

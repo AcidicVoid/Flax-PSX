@@ -17,7 +17,7 @@ namespace AcidicVoid.FlaxPsx.Lighting;
 /// <list type="bullet">
 /// <item>Element 0 (header): x = light count, yzw = ambient colour.</item>
 /// <item>Light i starts at element 1 + 4 * i:</item>
-/// <item>E0: position.xyz, 1 / range (0 = no range limit, directional)</item>
+/// <item>E0: position.xyz, 1 / range (0 = no range limit, directional; area: 1 / (range + shape radius), so the test covers the whole shape)</item>
 /// <item>E1: colour.rgb (premultiplied by brightness and animation), type</item>
 /// <item>E2: direction.xyz, falloff (spot: distance falloff + cone falloff * 32)</item>
 /// <item>E3: shape (area only: 1 = rectangle, 2 = circle), halfSize.x, halfSize.y, angle (spot: cos(angle / 2), area: roll)</item>
@@ -556,7 +556,23 @@ public static class VertexLightManager
 
     private static float GetRange(PsxVertexLight light)
     {
-        return light.LightType == PsxLightType.Directional ? float.MaxValue : light.Range;
+        switch (light.LightType)
+        {
+        case PsxLightType.Directional: return float.MaxValue;
+        case PsxLightType.Area: return light.Range + GetAreaRadius(light);
+        default: return light.Range;
+        }
+    }
+
+    /// <summary>
+    /// Distance from an area light's centre to the farthest point of its shape. The area light's Range is measured from the
+    /// shape itself, so range tests and culling around the centre use Range + this radius.
+    /// The shader derives it the same way from E3 (circle: halfSize.x, rectangle: length(halfSize)).
+    /// </summary>
+    private static float GetAreaRadius(PsxVertexLight light)
+    {
+        Float2 half = light.HalfSize;
+        return light.Shape == PsxAreaLightShape.Circle ? half.X : half.Length;
     }
 
     private static void Pack(int count, float time)
@@ -605,7 +621,7 @@ public static class VertexLightManager
                 float roll = PsxLightMath.ComputeRoll(normal, transform.Right);
                 float shape = light.Shape == PsxAreaLightShape.Circle ? (float)PsxAreaLightShape.Circle : (float)PsxAreaLightShape.Rectangle;
                 Float2 half = light.HalfSize;
-                _data[t + 0] = new Float4(position, 1.0f / light.Range);
+                _data[t + 0] = new Float4(position, 1.0f / (light.Range + GetAreaRadius(light)));
                 _data[t + 1] = new Float4(colour, (float)PsxLightType.Area);
                 _data[t + 2] = new Float4(normal, (float)(int)light.Falloff);
                 _data[t + 3] = new Float4(shape, half.X, half.Y, roll);

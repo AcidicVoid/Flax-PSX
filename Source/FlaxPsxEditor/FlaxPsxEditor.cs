@@ -140,7 +140,7 @@ namespace AcidicVoid.FlaxPsx
 
             var summary = $"Checked {ids.Length} material instance(s): fixed {fixedCount}, failed {failedCount}.";
             Debug.Log("[Flax PSX] " + summary);
-            MessageBox.Show(summary + (fixedCount > 0 ? "\n\nReopen any open material instance windows to see the change." : string.Empty), "Fix Material Instance Overrides");
+            MessageBox.Show(summary, "Fix Material Instance Overrides");
         }
 
         private void OnSceneContextMenuShow(ContextMenu contextMenu)

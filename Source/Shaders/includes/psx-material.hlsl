@@ -43,14 +43,11 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 // * w:   Ambient Light Strength for Vertex Lighting
 //
 // Input 2 - VertexColorInfo:
-// * x: reserved (null) TODO: Implement Vertex Color Threshold to ignore pure black or white
-// * y: reserved (null) TODO: Implement Vertex Color Threshold inversion (swap black/white targeting)
 // * z: Use Additive Vertex Color (int) 
 // * w: Vertex Color Strength (float)
 //
 // Input 3 - Vertex Lighting
 // * xyz:  Vertex Lighting RGB Colors
-// * w:    Vertex Lighting Clamp Max
 
 float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float3 VertexLighting)
 {
@@ -59,7 +56,6 @@ float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorIn
     
     // Vertex Lighting
     float3 vertexColor = VertexColor.rgb;
-    float  ambientLightStrength = VertexColor.w;
 
     //c.xyz *= clamp(VertexLighting.xyz, 0, 2);
     c.xyz *= VertexLighting.xyz;
@@ -72,7 +68,7 @@ float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorIn
     else
         c *= float4(lerp(float3(1,1,1), vertexColor, vertexColorStrength), 1);
     
-    return lerp(c, c + Color, ambientLightStrength);
+    return c;
 }
 
 #endif

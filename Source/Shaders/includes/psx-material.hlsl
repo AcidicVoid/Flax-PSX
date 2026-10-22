@@ -51,23 +51,19 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 
 float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float3 VertexLighting)
 {
-    // Cache color
     float4 c = Color;
-    
-    // Vertex Lighting
-    float3 vertexColor = VertexColor.rgb;
 
-    //c.xyz *= clamp(VertexLighting.xyz, 0, 2);
-    c.xyz *= VertexLighting.xyz;
-    
-    // Vertex Color
-    int useAdditiveVertexColors = VertexColorInfo.z;
-    int vertexColorStrength = VertexColorInfo.w;
-    if (useAdditiveVertexColors > 0.5)
-        c += float4(lerp(float3(0,0,0), vertexColor, vertexColorStrength), 0);
+    // Vertex Lighting
+    c.rgb *= VertexLighting;
+
+    // Vertex Color (additive path is applied after lighting -> unlit/emissive-like)
+    float3 vc = VertexColor.rgb;
+    float vertexColorStrength = VertexColorInfo.w;
+    if (VertexColorInfo.z > 0.5)
+        c.rgb += vc * vertexColorStrength;
     else
-        c *= float4(lerp(float3(1,1,1), vertexColor, vertexColorStrength), 1);
-    
+        c.rgb *= lerp(float3(1, 1, 1), vc, vertexColorStrength);
+
     return c;
 }
 

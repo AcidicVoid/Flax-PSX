@@ -29,7 +29,7 @@ float2 F_GetAffineUVs(float4 AffineUV0W)
 // Handles vertex-stage operations
 float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineUV0W)
 {
-    float2 texCoords    = UVs.xy;
+    float2 texCoords = UVs.xy;
     // Calculate vertex stage part of Affine UVs, pass to output AffineUV0W
     AffineUV0W = V_GetAffineUV0W(texCoords, WorldPosition);
     return float4(0,0,0,0);

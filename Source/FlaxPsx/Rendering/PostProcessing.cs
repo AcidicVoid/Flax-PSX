@@ -220,6 +220,11 @@ public class PostProcessing : PostProcessEffect
 
         // Unregister Event
         ViewportSizeChanged -= OnViewportSizeChanged;
+
+#if FLAX_EDITOR
+        Content.AssetReloading -= OnAssetReloading;
+#endif
+        ReleaseShader();
     }
 
     private bool HandleChanges(PostProcessingHelpers helpers)

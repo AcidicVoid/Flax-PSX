@@ -29,7 +29,7 @@ float2 F_GetAffineUVs(float4 AffineUV0W)
 // Handles vertex-stage operations
 float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineUV0W)
 {
-    float2 texCoords    = UVs.xy;
+    float2 texCoords = UVs.xy;
     // Calculate vertex stage part of Affine UVs, pass to output AffineUV0W
     AffineUV0W = V_GetAffineUV0W(texCoords, WorldPosition);
     return float4(0,0,0,0);
@@ -43,35 +43,28 @@ float4 Vertex_SurfaceOpaque(float4 UVs, float3 WorldPosition, out float4 AffineU
 // * w:   Ambient Light Strength for Vertex Lighting
 //
 // Input 2 - VertexColorInfo:
-// * x: reserved (null) TODO: Implement Vertex Color Threshold to ignore pure black or white
-// * y: reserved (null) TODO: Implement Vertex Color Threshold inversion (swap black/white targeting)
 // * z: Use Additive Vertex Color (int) 
 // * w: Vertex Color Strength (float)
 //
 // Input 3 - Vertex Lighting
 // * xyz:  Vertex Lighting RGB Colors
-// * w:    Vertex Lighting Clamp Max
 
-float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float4 VertexLighting)
+float4 Frag_SurfaceOpaque(float4 Color, float4 VertexColor, float4 VertexColorInfo, float3 VertexLighting)
 {
-    // Cache color
     float4 c = Color;
-    
-    // Vertex Lighting
-    float3 vertexColor = VertexColor.rgb;
-    float  ambientLightStrength = VertexColor.w;
 
-    c.xyz *= clamp(VertexLighting.xyz, 0, VertexLighting.w);
-    
-    // Vertex Color
-    int useAdditiveVertexColors = VertexColorInfo.z;
-    int vertexColorStrength = VertexColorInfo.w;
-    if (useAdditiveVertexColors > 0.5)
-        c += float4(lerp(float3(0,0,0), vertexColor, vertexColorStrength), 0);
+    // Vertex Lighting
+    c.rgb *= VertexLighting;
+
+    // Vertex Color (additive path is applied after lighting -> unlit/emissive-like)
+    float3 vc = VertexColor.rgb;
+    float vertexColorStrength = VertexColorInfo.w;
+    if (VertexColorInfo.z > 0.5)
+        c.rgb += vc * vertexColorStrength;
     else
-        c *= float4(lerp(float3(1,1,1), vertexColor, vertexColorStrength), 1);
-    
-    return lerp(c, c + Color, ambientLightStrength);
+        c.rgb *= lerp(float3(1, 1, 1), vc, vertexColorStrength);
+
+    return c;
 }
 
 #endif

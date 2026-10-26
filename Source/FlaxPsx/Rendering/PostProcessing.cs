@@ -155,6 +155,9 @@ public class PostProcessing : PostProcessEffect
                 Order,
                 ActorSources
             );
+
+            // This task renders the scene (the main task renders no actors while PSX post-processing is active)
+            AcidicVoid.FlaxPsx.Lighting.VertexLightManager.AddLitTask(_sceneRenderTask);
         }
         _sceneRenderTask.Enabled = true;
         
@@ -206,6 +209,7 @@ public class PostProcessing : PostProcessEffect
 
         if (_sceneRenderTask != null)
         {
+            AcidicVoid.FlaxPsx.Lighting.VertexLightManager.RemoveLitTask(_sceneRenderTask);
             _sceneRenderTask.Enabled = false;
             Destroy(_sceneRenderTask);
             _sceneRenderTask = null;

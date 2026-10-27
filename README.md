@@ -7,32 +7,47 @@ Because the scene is actually rendered at a low resolution — rather than rende
 ![preview-gif](.media/7f67e65fded7025f.gif)
 
 ## Feature Status
+The feature list may change from time to time.
 - [x] PSX-Style post processing
   - [x] dithering
   - [x] integer scaling
-- [x] custom fx-chain by post processing materials
+  - [x] colour precision
+- [x] Custom FX-chain by post processing materials
   - [x] depth-based fog
-  - [ ] CRT effects (this is postponed but PRs are welcome)
+  - [ ] CRT effects (this is postponed)
+- [x] Vertex Lighting
+  - [x] Custom lighting actors
+    - [ ] Caustics projection light (TR style)
+  - [x] Custom lighting data
+  - [x] lighting effects for fire (torches, etc.)
+  - [x] lighting flicker variants, adapted from Q1
 - [x] PSX-Style materials
-  - [x] 5bpc color precision (high-color available)
-  - [x] vertex lighting
   - [x] screenspace vertex snapping (the mind-boggle wobble)
-  - [x] PSX-style water caustics (Tomb Raider style)
-    - [x] material with caustics limited to local lights
-  - [ ] lighting effects for fire (torches, etc.)
-  - [ ] lighting flicker variants adapted from Q1
+  - [x] affine UVs (texture warping)
+  - [x] distance-based affine UVs
+  - [x] materials for vertex lighting system
+  - [ ] materials for default lighting system
+- [x] Caustics Volumes
+  - [ ] PSX-style water caustics via volume (TR style)
 
 
-## Notes:  
-* You can also just use the materials, without all post-processing  
-* Using the additional post processing **only** should work but is not tested - I will probably test it properly in the future and make adjustments if necessary  
+## Notes:
+* If you don't want to use the plugin's vertex lighting system, you can use the alternative materials which work with the engine's lighting system.
+* You can just use the materials, without all post-processing.
+* You can also only use the post-processing.
 * This plugin has currently been tested with Windows 11 **only**.
+
+> [!NOTE]  
+> **REGARDING AI:** Yes. I use AI tools in software development. Yet, by far not all of my code is AI generated. *If* AI is used, *every bit* of generated code is reviewed and tested. I won't vibe-code large portions of code without reading it. Not now, not in the future.
 
 ---
 ## Breaking changes:
+* **2026-10-XX**
+  * Material names and parameters have been changed
+  * A custom lighting system is now included
 * **2026-04-08**
   * The code is now much more robust and maintainable
-  * Extra script for psot-processing resource managed has been removed
+  * Extra script for post-processing resource managed has been removed
   * Features like additional post processing and CRT features directly in the main post-processing shaders have been removed
 * ~~**2026.02.xx** new post-processing where fog and scanlines were removed. These will be replaced by post processing materials - this will offer more flexibility and a custom FX chain. A LEGACY VERSION IS INCLUDED BUT IS NO LONGER MAINTAINED!~~
 
@@ -43,19 +58,58 @@ Because the scene is actually rendered at a low resolution — rather than rende
 3. enter ``Flax PSX`` as *Plugin Name* and this repository as *Git Path*: `git@github.com:AcidicVoid/Flax-PSX.git`
 4. create and empty actor in your project
     *  it's highly reccomended to disable all advanced graphics features like anti aliasing, camera artifacts, etc. if you're aiming for authentic retro visuals
-5. add a **Flax PSX/PostProcessingResources** script to your actor
-    * add your custom camera (present in the scene)
-      * if using [CineBlend](https://github.com/GasimoCodes/CineBlend), you can either reference the Custom Camera that contains the CineBlendMaster, or use the camera assigned to Camera.MainCamera, which also contains the CineBlendMaster — don't worry about the virtual cameras.
-6. add a **Flax PSX/PostProcessing** script to your actor (doesn't need to be same actor as from step 5)
-    * add reference to the *PostProcessingResources* to the Resources slot
+5. Create an empty actor and add a **Flax PSX/PostProcessing** script to it
     * add the *FlaxPsxPostProcessing* shader to the Shader slot
     * play around with the settings
+6. If you want to use the plugin's vertex lighting system, create an empty actor and add a `PsxVertexLightingSettings` script to it
 
-## Physics
-When working with particle systems using SDF collision (e.g. snow or rain effects), it is required to add a *PsxParticleSystem* to the *ParticleEffect* Actor and reference the *PsxPostProcessing* script.
-
+---
 ## Installation Video
 [![How to install Flax-PSX plugin](https://i.ytimg.com/vi/XZRdeI5lOZU/maxresdefault.jpg)](https://www.youtube.com/watch?v=XZRdeI5lOZU)
+
+## Lighting System
+
+| Name               | Description |
+| ------------------ | ----------- |
+| Directional | Light from one direction everywhere, like the sun or moon. It has no position or range. Only one is active per scene. |
+| Point | Shines in all directions from one point and fades out at its Range. |
+| Spot | A cone of light from one point, set by Angle. It fades with distance (Falloff) and towards the cone’s edge (Cone Falloff). |
+| Area | A glowing rectangle, square or circle, set by Dimensions. It lights only what’s in front of it and fades with distance from the shape. *Experimental*. |
+
+## Materials
+
+### Vertex-Lit Materials
+These materials make use of the plugin's own lighting system and ignore the engine's lights entirely.
+
+| Name               | Description |
+| ------------------ | ----------- |
+| FPSX_VL_Surface    | Vertex-lit material for surfaces |
+| FPSX_VL_DS_Surface | Vertex-lit material for surfaces, double sided |
+| FPSX_VL_Liquid     | Vertex-lit material for liquid, intended for e.g. water surfaces |
+
+### Default-Lit Materials
+These materials are very basic and use the engine's lighting system.
+
+| Name               | Description |
+| ------------------ | ----------- |
+| FPSX_Surface       | Lit material for surfaces |
+| FPSX_DS_Surface    | Lit material for surfaces, double sided |
+| FPSX_Liquid        | Lit material for liquid, intended for e.g. water surfaces |
+
+### Unlit Materials
+These materials are independant from the used lighting system
+
+| Name               | Description |
+| ------------------ | ----------- |
+| FPSX_UL_LightRay   | Unlit material to use on meshes that act as light rays |
+
+## Caustics Volume
+*Coming Soon...*
+
+## Physics
+
+### Particles
+When working with particle systems using SDF collision (e.g. snow or rain effects), it is required to add a `PsxParticleSystem` script to the `ParticleEffect` Actor and reference the `PsxPostProcessing` script.
 
 ## Support
 
